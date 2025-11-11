@@ -1177,11 +1177,16 @@ class KochWindow(QWidget):
         """显示统计信息窗口"""
         # 延迟导入，避免循环依赖
         from Statistics_Window import StatisticsWindow
-
+        
+        # 传入当前主题状态（True=深色，False=浅色）
+        current_theme_is_dark = self.switch_theme.isChecked()
+    
         if not hasattr(self, 'statistics_window') or not self.statistics_window.isVisible():
-            self.statistics_window = StatisticsWindow(stats_manager)
+            self.statistics_window = StatisticsWindow(stats_manager, current_theme_is_dark)
             self.statistics_window.show()
         else:
+            # 如果窗口已存在，更新主题并激活
+            self.statistics_window.apply_theme(current_theme_is_dark)
             self.statistics_window.activateWindow()
             self.statistics_window.raise_()
     

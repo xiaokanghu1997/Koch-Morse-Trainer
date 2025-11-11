@@ -18,8 +18,8 @@
 
 ## 安装依赖
 
-```bash
-pip install PySide6 PySide6-fluent-widgets scipy numpy
+```bashs
+pip install PySide6 PySide6-Fluent-Widgets pyqtgraph scipy numpy
 ```
 
 ## 使用方法
