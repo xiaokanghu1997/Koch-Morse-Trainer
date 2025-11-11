@@ -3,8 +3,8 @@ Koch - 莫尔斯电码训练器
 用于学习和练习莫尔斯电码字符识别
 
 Author: xiaokanghu1997
-Date: 2025-11-05
-Version: 1.0.0
+Date: 2025-11-10
+Version: 1.1.0
 """
 
 # ==================== 导入模块 ====================
@@ -14,6 +14,7 @@ import sys
 from ctypes import windll, byref, sizeof, c_int
 from pathlib import Path
 from typing import Optional, Dict, List
+from datetime import datetime
 
 # 第三方库 - PySide6
 from PySide6 import QtGui
@@ -30,6 +31,7 @@ from qfluentwidgets import (
 
 # 配置库
 from Config import config
+from Statistics import stats_manager
 
 
 class KochWindow(QWidget):
@@ -129,14 +131,13 @@ class KochWindow(QWidget):
         # ==================== 窗口基础设置 ====================
         self.setWindowTitle("Koch - Morse Code Trainer")
         self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
-        # self.setWindowIcon(FluentIcon.MUSIC.icon())
         self.set_windows_title_bar_color(False)  # 初始化为浅色标题栏
         self.update_window_icon(False)
         
         # ==================== 初始化设置存储 ====================
         self.settings = QSettings("Koch", "LessonProgress")
         
-        # ==================== 状态变量初始化 ====================
+        # ==================== 初始化状态变量 ====================
         self.is_char_playing = False  # 字符音频是否正在播放
         self.is_char_restart = False  # 字符音频重播状态
         self.is_text_playing = False  # 文本音频是否正在播放
@@ -146,6 +147,10 @@ class KochWindow(QWidget):
         self.countdown_value = self.COUNTDOWN_SECONDS  # 倒计时当前值
         self.is_countdown_active = False  # 倒计时是否激活
         self.is_result_checked = False  # 结果是否已检查
+
+        # ==================== 初始化练习计时器数据 ====================
+        self.practice_start_time = None  # 练习开始时间
+        self.practice_elapsed_time = 0.0  # 练习已用时间（秒）
         
         # ==================== 初始化课程数据 ====================
         self.init_lesson_data()
@@ -302,7 +307,7 @@ class KochWindow(QWidget):
         
         # 左侧：字符声音显示
         self.hbox31 = QHBoxLayout()
-        self.hbox31.addWidget(StrongBodyLabel("The Sound of Character:"))
+        self.hbox31.addWidget(StrongBodyLabel("The sound of character:"))
         self.label_char_sound = StrongBodyLabel("")
         self.hbox31.addWidget(self.label_char_sound)
         self.hbox31.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -357,7 +362,7 @@ class KochWindow(QWidget):
         
         # 左侧：标签
         self.hbox41 = QHBoxLayout()
-        self.hbox41.addWidget(StrongBodyLabel("Practice Text:"))
+        self.hbox41.addWidget(StrongBodyLabel("Practice text:"))
         self.hbox41.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         # 右侧：播放控制
@@ -455,14 +460,25 @@ class KochWindow(QWidget):
         self.hbox62 = QHBoxLayout()
         self.hbox62.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # 右侧：检查按钮
+        # 右侧：检查按钮和统计按钮
         self.hbox63 = QHBoxLayout()
+
+        # 检查按钮
         self.btn_check = PushButton("Check Result")
         self.btn_check.setIcon(FluentIcon.ACCEPT)
         self.btn_check.setIconSize(self.ICON_SIZE)
         self.btn_check.setFixedSize(140, 30)
         self.btn_check.clicked.connect(self.check_result)
         self.hbox63.addWidget(self.btn_check)
+
+        # 统计按钮
+        self.btn_statistics = PushButton("Statistics")
+        self.btn_statistics.setIcon(FluentIcon.CALORIES)
+        self.btn_statistics.setIconSize(self.ICON_SIZE)
+        self.btn_statistics.setFixedSize(110, 30)
+        self.btn_statistics.clicked.connect(self.show_statistics_window)
+        self.hbox63.addWidget(self.btn_statistics)
+
         self.hbox63.setAlignment(Qt.AlignmentFlag.AlignRight)
         
         # 组合所有部分
@@ -803,6 +819,10 @@ class KochWindow(QWidget):
         """开始3秒倒计时"""
         self.countdown_value = self.COUNTDOWN_SECONDS
         self.is_countdown_active = True
+
+        # 记录练习开始时间
+        self.practice_start_time = datetime.now()
+        self.practice_elapsed_time = 0.0
         
         # 设置按钮为取消状态
         self.btn_text_play_pause.setText("Cancel")
@@ -976,6 +996,16 @@ class KochWindow(QWidget):
 
             # 设置text_input为只读，防止用户修改结果
             self.text_input.setReadOnly(True)
+
+            # 保存统计数据
+            if self.practice_start_time:
+                practice_time = (datetime.now() - self.practice_start_time).total_seconds()
+                stats_manager.add_practice_record(
+                    lesson_num=self.current_lesson_name,
+                    accuracy=accuracy,
+                    practice_time=practice_time,
+                    text_index=self.current_text_index
+                )
             
         except FileNotFoundError:
             # 文件不存在时的错误处理
@@ -1140,6 +1170,20 @@ class KochWindow(QWidget):
         except (OSError, AttributeError):
             # 非Windows系统或API调用失败时忽略
             pass
+    
+    # ==================== 统计窗口显示 ====================
+
+    def show_statistics_window(self):
+        """显示统计信息窗口"""
+        # 延迟导入，避免循环依赖
+        from Statistics_Window import StatisticsWindow
+
+        if not hasattr(self, 'statistics_window') or not self.statistics_window.isVisible():
+            self.statistics_window = StatisticsWindow(stats_manager)
+            self.statistics_window.show()
+        else:
+            self.statistics_window.activateWindow()
+            self.statistics_window.raise_()
     
     # ==================== 窗口事件处理 ====================
     

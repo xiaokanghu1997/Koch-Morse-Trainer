@@ -23,6 +23,7 @@ desktop.ini
 
 # 配置文件（包含用户个人设置）
 Config.json
+Statistics.json
 
 # 音频资源文件（体积大，不适合Git管理）
 Resource/

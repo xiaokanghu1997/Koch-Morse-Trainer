@@ -12,7 +12,7 @@ class Config:
     
     # 应用信息
     APP_NAME = "Koch"
-    APP_VERSION = "1.0.0"
+    APP_VERSION = "1.1.0"
     AUTHOR = "xiaokanghu1997"
     
     def __init__(self):
@@ -119,6 +119,11 @@ class Config:
     def get_logo_path(self, theme='light') -> Path:
         """获取Logo路径"""
         return self.logo_dir / f"logo_{theme}.png"
+    
+    # ========== 统计数据路径 ==========
+    def statistics_file(self) -> Path:
+        """获取统计数据文件路径"""
+        return self.base_dir / "Statistics.json"
     
     # ========== 资源检查 ==========
     
