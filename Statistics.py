@@ -3,13 +3,13 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: xiaokanghu1997
-Date: 2025-11-10
-Version: 1.1.0
+Date: 2025-11-11
+Version: 1.2.0
 """
 
 import json
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime
 from typing import Dict, List, Optional
 from Config import config
 
@@ -38,11 +38,12 @@ class StatisticsManager:
         
         # 返回默认数据结构
         return {
-            "version": "1.1.0",
             "total_practice_time": 0,  # 总练习时长（秒）
             "total_practice_count": 0,  # 总练习次数
-            "lessons": {},  # 各课程统计
-            "daily_stats": {}  # 每日统计
+            "average_accuracy": 0.0,  # 平均准确率
+            "practiced_lesson_numbers": [0],  # 有练习记录的课程编号列表（0代表所有课程）
+            "practiced_lesson_names": ["All learned lessons"],  # 课程名称列表
+            "lessons": {}  # 各课程统计，按编号索引
         }
     
     def save_statistics(self):
@@ -52,6 +53,51 @@ class StatisticsManager:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)
         except Exception as e:
             print(f"Warning: Failed to save statistics - {e}")
+    
+    def extract_lesson_number(self, lesson_name: str) -> int:
+        """
+        从课程名称中提取编号
+        
+        Args:
+            lesson_name: 课程名称，如 "01 - K, M"
+            
+        Returns:
+            课程编号，如 1
+        """
+        try:
+            # 提取开头的数字部分
+            number_str = lesson_name.split('-')[0].strip()
+            return int(number_str)
+        except:
+            return 0
+    
+    def update_overall_stats(self):
+        """更新总体统计数据"""
+        # 获取所有课程编号及其名称
+        lesson_info = []
+        for lesson_number, lesson_data in self.data["lessons"].items():
+            lesson_info.append((
+                int(lesson_number),
+                lesson_data.get("lesson_name", f"Lesson {lesson_number}")
+            ))
+        
+        # 按编号排序
+        lesson_info.sort(key=lambda x: x[0])
+        
+        # 更新课程编号和名称列表（0开头，代表所有已学课程）
+        self.data["practiced_lesson_numbers"] = [0] + [num for num, _ in lesson_info]
+        self.data["practiced_lesson_names"] = ["All learned lessons"] + [name for _, name in lesson_info]
+        
+        # 计算总平均准确率
+        total_lessons = len(self.data["lessons"])
+        if total_lessons > 0:
+            total_avg = sum(
+                lesson.get("average_accuracy", 0)
+                for lesson in self.data["lessons"].values()
+            ) / total_lessons
+            self.data["average_accuracy"] = round(total_avg, 2)
+        else:
+            self.data["average_accuracy"] = 0.0
     
     def add_practice_record(
         self, 
@@ -69,22 +115,25 @@ class StatisticsManager:
             practice_time: 练习时长（秒）
             text_index: 练习文本索引
         """
+        # 提取课程编号
+        lesson_number = self.extract_lesson_number(lesson_name)
+        lesson_key = str(lesson_number)
+        
         # 更新总计数据
         self.data["total_practice_time"] += practice_time
         self.data["total_practice_count"] += 1
         
         # 初始化课程数据（如果不存在）
-        if lesson_name not in self.data["lessons"]:
-            self.data["lessons"][lesson_name] = {
-                "practice_count": 0,
-                "accuracy_history": [],
-                "total_accuracy": 0.0,
-                "average_accuracy": 0.0,
-                "best_accuracy": 0.0,
-                "practice_time": 0.0
+        if lesson_key not in self.data["lessons"]:
+            self.data["lessons"][lesson_key] = {
+                "lesson_name": lesson_name,  # 课程名称
+                "practice_count": 0,  # 总练习次数
+                "practice_time": 0.0,  # 总练习时间
+                "average_accuracy": 0.0,  # 平均准确率
+                "accuracy_history": []  # 历史记录
             }
         
-        lesson_data = self.data["lessons"][lesson_name]
+        lesson_data = self.data["lessons"][lesson_key]
         
         # 添加历史记录
         record = {
@@ -97,40 +146,45 @@ class StatisticsManager:
         
         # 更新课程统计
         lesson_data["practice_count"] += 1
-        lesson_data["total_accuracy"] += accuracy
-        lesson_data["average_accuracy"] = round(
-            lesson_data["total_accuracy"] / lesson_data["practice_count"], 2
-        )
-        lesson_data["best_accuracy"] = max(
-            lesson_data["best_accuracy"], accuracy
-        )
         lesson_data["practice_time"] += practice_time
         
-        # 更新每日统计
-        today = date.today().isoformat()
-        if today not in self.data["daily_stats"]:
-            self.data["daily_stats"][today] = {
-                "practice_time": 0.0,
-                "practice_count": 0
-            }
+        # 重新计算平均准确率（基于历史记录）
+        total_accuracy = sum(record["accuracy"] for record in lesson_data["accuracy_history"])
+        lesson_data["average_accuracy"] = round(
+            total_accuracy / len(lesson_data["accuracy_history"]), 2
+        )
         
-        self.data["daily_stats"][today]["practice_time"] += practice_time
-        self.data["daily_stats"][today]["practice_count"] += 1
+        # 更新总体统计
+        self.update_overall_stats()
         
         # 保存数据
         self.save_statistics()
     
-    def get_lesson_stats(self, lesson_name: str) -> Optional[dict]:
+    def get_lesson_stats(self, lesson_identifier) -> Optional[dict]:
         """
         获取指定课程的统计数据
         
         Args:
-            lesson_name: 课程名称
+            lesson_identifier: 课程编号（int）或课程名称（str）
             
         Returns:
             课程统计数据字典，如果不存在返回None
         """
-        return self.data["lessons"].get(lesson_name)
+        # 如果是0，返回所有课程的汇总统计
+        if lesson_identifier == 0 or lesson_identifier == "0":
+            return self.get_overall_stats()
+        
+        # 如果是整数或数字字符串，直接作为编号查找
+        if isinstance(lesson_identifier, int):
+            lesson_key = str(lesson_identifier)
+        elif lesson_identifier.isdigit():
+            lesson_key = lesson_identifier
+        else:
+            # 如果是课程名称，提取编号
+            lesson_number = self.extract_lesson_number(lesson_identifier)
+            lesson_key = str(lesson_number)
+        
+        return self.data["lessons"].get(lesson_key)
     
     def get_overall_stats(self) -> dict:
         """
@@ -145,67 +199,33 @@ class StatisticsManager:
             if lesson.get("average_accuracy", 0) >= 90.0
         )
         
-        # 计算总平均准确率
-        if total_lessons > 0:
-            total_avg = sum(
-                lesson.get("average_accuracy", 0)
-                for lesson in self.data["lessons"].values()
-            ) / total_lessons
-        else:
-            total_avg = 0.0
-        
         return {
             "total_practice_time": self.data["total_practice_time"],
             "total_practice_count": self.data["total_practice_count"],
+            "average_accuracy": self.data["average_accuracy"],
+            "practiced_lesson_numbers": self.data["practiced_lesson_numbers"],
+            "practiced_lesson_names": self.data["practiced_lesson_names"],
             "total_lessons_practiced": total_lessons,
-            "completed_lessons": completed_lessons,
-            "average_accuracy": round(total_avg, 2)
+            "completed_lessons": completed_lessons
         }
     
-    def get_recent_history(self, lesson_name: str, count: int = 10) -> List[dict]:
+    def get_recent_history(self, lesson_identifier, count: int = 10) -> List[dict]:
         """
         获取最近的练习历史记录
         
         Args:
-            lesson_name: 课程名称
+            lesson_identifier: 课程编号或课程名称
             count: 返回记录数量
             
         Returns:
             最近的练习记录列表
         """
-        lesson_data = self.get_lesson_stats(lesson_name)
+        lesson_data = self.get_lesson_stats(lesson_identifier)
         if not lesson_data:
             return []
         
         history = lesson_data.get("accuracy_history", [])
         return history[-count:]
-    
-    def get_daily_stats(self, days: int = 7) -> dict:
-        """
-        获取最近N天的每日统计
-        
-        Args:
-            days: 天数
-            
-        Returns:
-            每日统计数据字典
-        """
-        result = {}
-        today = date.today()
-        
-        for i in range(days):
-            target_date = today - datetime.timedelta(days=i)
-            date_str = target_date.isoformat()
-            
-            if date_str in self.data["daily_stats"]:
-                result[date_str] = self.data["daily_stats"][date_str]
-            else:
-                result[date_str] = {
-                    "practice_time": 0.0,
-                    "practice_count": 0
-                }
-        
-        return result
     
     def format_time(self, seconds: float) -> str:
         """
