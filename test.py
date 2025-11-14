@@ -1,32 +1,62 @@
-import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Circle
 
-class PlotWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Debao's Matplotlib with PySide6")
+# 示例数据
+x = np.linspace(0, 10, 30)
+y = np.sin(x)
 
-        # 创建Matplotlib图形
-        self.figure, self.ax = plt.subplots()
+fig, ax = plt.subplots()
+points = ax.plot(x, y, 'o', picker=5, markersize=6)[0]
+highlight = ax.plot([], [], 'o', color='red', markersize=6)[0]
 
-        self.ax.plot([1, 2, 3, 4], [10, 20, 25, 30])
-        self.ax.set_xlabel('X Axis')
-        self.ax.set_ylabel('Y Axis')
-        self.ax.set_title('Simple Plot')
+# 创建提示框
+annot = ax.annotate("",
+                    xy=(0, 0),
+                    xytext=(10, 10),
+                    textcoords="offset points",
+                    bbox=dict(boxstyle="round,pad=0.3", fc="w", alpha=0.8),
+                    arrowprops=None)
+annot.set_visible(False)
 
-        # 创建画布，并将其添加到窗口
-        self.canvas = FigureCanvas(self.figure)
-        layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
+def update_annot(ind, event, offset=8):
+    i = ind["ind"][0]
+    annot.xy = (x[i], y[i])
+    annot.set_text(f"x={x[i]:.2f}\ny={y[i]:.2f}")
 
-        container = QWidget()
-        container.setLayout(layout)
-        self.setCentralWidget(container)
+    # 根据鼠标位置设置偏移方向
+    if event.x > fig.bbox.width / 2:
+        dx = -offset
+        ha = 'right'
+    else:
+        dx = offset
+        ha = 'left'
+    if event.y > fig.bbox.height / 2:
+        dy = -offset
+        va = 'top'
+    else:
+        dy = offset
+        va = 'bottom'
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = PlotWindow()
-    window.show()
-    sys.exit(app.exec())
+    annot.set_position((dx, dy))
+    annot.set_ha(ha)
+    annot.set_va(va)
+
+    highlight.set_data([x[i]], [y[i]])
+
+def hover(event):
+    vis = annot.get_visible()
+    if event.inaxes == ax:
+        cont, ind = points.contains(event)
+        if cont:
+            update_annot(ind, event)
+            annot.set_visible(True)
+            highlight.set_visible(True)
+            fig.canvas.draw_idle()
+        elif vis:
+            annot.set_visible(False)
+            highlight.set_visible(False)
+            fig.canvas.draw_idle()
+
+fig.canvas.mpl_connect("motion_notify_event", hover)
+plt.show()

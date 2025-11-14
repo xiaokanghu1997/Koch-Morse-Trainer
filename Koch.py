@@ -150,7 +150,7 @@ class KochWindow(QWidget):
 
         # ==================== 初始化练习计时器数据 ====================
         self.practice_start_time = None  # 练习开始时间
-        self.practice_elapsed_time = 0.0  # 练习已用时间（秒）
+        self.practice_end_time = None  # 练习结束时间
         
         # ==================== 初始化课程数据 ====================
         self.init_lesson_data()
@@ -794,6 +794,9 @@ class KochWindow(QWidget):
 
         self.clear_layout(self.hbox62)  # 清除结果显示
         self._reset_check_button()  # 重置检查按钮状态
+
+        self.practice_start_time = None  # 重置练习开始时间
+        self.practice_end_time = None  # 重置练习结束时间
     
     def text_play_pause(self):
         """
@@ -819,10 +822,6 @@ class KochWindow(QWidget):
         """开始3秒倒计时"""
         self.countdown_value = self.COUNTDOWN_SECONDS
         self.is_countdown_active = True
-
-        # 记录练习开始时间
-        self.practice_start_time = datetime.now()
-        self.practice_elapsed_time = 0.0
         
         # 设置按钮为取消状态
         self.btn_text_play_pause.setText("Cancel")
@@ -845,6 +844,10 @@ class KochWindow(QWidget):
         else:  # 倒计时结束，开始播放
             self.countdown_timer.stop()
             self.is_countdown_active = False
+
+            if self.practice_start_time is None:
+                self.practice_start_time = datetime.now()  # 记录练习开始时间
+
             self.text_player.play()
             self.set_play_button_state(self.btn_text_play_pause, True)
             self.is_text_playing = True
@@ -999,7 +1002,8 @@ class KochWindow(QWidget):
 
             # 保存统计数据
             if self.practice_start_time:
-                practice_time = (datetime.now() - self.practice_start_time).total_seconds()
+                self.practice_end_time = datetime.now()
+                practice_time = (self.practice_end_time - self.practice_start_time).total_seconds()
                 stats_manager.add_practice_record(
                     lesson_num=self.current_lesson_name,
                     accuracy=accuracy,
@@ -1179,14 +1183,15 @@ class KochWindow(QWidget):
         from Statistics_Window import StatisticsWindow
         
         # 传入当前主题状态（True=深色，False=浅色）
-        current_theme_is_dark = self.switch_theme.isChecked()
+        current_theme = self.switch_theme.isChecked()
+        current_transparent = self.switch_transparency.isChecked()
     
         if not hasattr(self, 'statistics_window') or not self.statistics_window.isVisible():
-            self.statistics_window = StatisticsWindow(stats_manager, current_theme_is_dark)
+            self.statistics_window = StatisticsWindow(stats_manager, current_theme, current_transparent)
             self.statistics_window.show()
         else:
             # 如果窗口已存在，更新主题并激活
-            self.statistics_window.apply_theme(current_theme_is_dark)
+            self.statistics_window.apply_theme(current_theme)
             self.statistics_window.activateWindow()
             self.statistics_window.raise_()
     

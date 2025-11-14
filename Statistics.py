@@ -3,14 +3,15 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: xiaokanghu1997
-Date: 2025-11-11
-Version: 1.2.0
+Date: 2025-11-13
+Version: 2.0.0
 """
 
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
 from Config import config
 
 
@@ -41,7 +42,7 @@ class StatisticsManager:
             "total_practice_time": 0,  # 总练习时长（秒）
             "total_practice_count": 0,  # 总练习次数
             "average_accuracy": 0.0,  # 平均准确率
-            "practiced_lesson_numbers": [0],  # 有练习记录的课程编号列表（0代表所有课程）
+            "practiced_lesson_numbers": [0],  # 已练习课程编号列表（0代表所有课程）
             "practiced_lesson_names": ["All learned lessons"],  # 课程名称列表
             "lessons": {}  # 各课程统计，按编号索引
         }
@@ -75,10 +76,10 @@ class StatisticsManager:
         """更新总体统计数据"""
         # 获取所有课程编号及其名称
         lesson_info = []
-        for lesson_number, lesson_data in self.data["lessons"].items():
+        for lesson_key, lesson_data in self.data["lessons"].items():
             lesson_info.append((
-                int(lesson_number),
-                lesson_data.get("lesson_name", f"Lesson {lesson_number}")
+                int(lesson_key),
+                lesson_data.get("lesson_name", f"Lesson {lesson_key}")
             ))
         
         # 按编号排序
@@ -103,8 +104,7 @@ class StatisticsManager:
         self, 
         lesson_name: str, 
         accuracy: float, 
-        practice_time: float,
-        text_index: int
+        practice_time: float
     ):
         """
         添加一次练习记录
@@ -113,7 +113,6 @@ class StatisticsManager:
             lesson_name: 课程名称，如 "01 - K, M"
             accuracy: 准确率（0-100）
             practice_time: 练习时长（秒）
-            text_index: 练习文本索引
         """
         # 提取课程编号
         lesson_number = self.extract_lesson_number(lesson_name)
@@ -126,11 +125,11 @@ class StatisticsManager:
         # 初始化课程数据（如果不存在）
         if lesson_key not in self.data["lessons"]:
             self.data["lessons"][lesson_key] = {
-                "lesson_name": lesson_name,  # 课程名称
-                "practice_count": 0,  # 总练习次数
-                "practice_time": 0.0,  # 总练习时间
-                "average_accuracy": 0.0,  # 平均准确率
-                "accuracy_history": []  # 历史记录
+                "lesson_name": lesson_name,
+                "practice_count": 0,
+                "practice_time": 0.0,
+                "average_accuracy": 0.0,
+                "accuracy_history": []
             }
         
         lesson_data = self.data["lessons"][lesson_key]
@@ -139,8 +138,7 @@ class StatisticsManager:
         record = {
             "timestamp": datetime.now().isoformat(),
             "accuracy": round(accuracy, 2),
-            "practice_time": round(practice_time, 2),
-            "text_index": text_index
+            "practice_time": round(practice_time, 2)
         }
         lesson_data["accuracy_history"].append(record)
         
@@ -193,20 +191,12 @@ class StatisticsManager:
         Returns:
             包含总体统计信息的字典
         """
-        total_lessons = len(self.data["lessons"])
-        completed_lessons = sum(
-            1 for lesson in self.data["lessons"].values()
-            if lesson.get("average_accuracy", 0) >= 90.0
-        )
-        
         return {
             "total_practice_time": self.data["total_practice_time"],
             "total_practice_count": self.data["total_practice_count"],
             "average_accuracy": self.data["average_accuracy"],
             "practiced_lesson_numbers": self.data["practiced_lesson_numbers"],
-            "practiced_lesson_names": self.data["practiced_lesson_names"],
-            "total_lessons_practiced": total_lessons,
-            "completed_lessons": completed_lessons
+            "practiced_lesson_names": self.data["practiced_lesson_names"]
         }
     
     def get_recent_history(self, lesson_identifier, count: int = 10) -> List[dict]:
@@ -221,11 +211,86 @@ class StatisticsManager:
             最近的练习记录列表
         """
         lesson_data = self.get_lesson_stats(lesson_identifier)
-        if not lesson_data:
+        if not lesson_data or "accuracy_history" not in lesson_data:
             return []
         
         history = lesson_data.get("accuracy_history", [])
         return history[-count:]
+    
+    def aggregate_by_time_period(
+        self, 
+        lesson_identifier, 
+        mode: str = "Day"
+    ) -> Tuple[List[str], List[float], List[int]]:
+        """
+        按时间段聚合练习数据
+        
+        Args:
+            lesson_identifier: 课程编号或课程名称
+            mode: 聚合模式 - "Hour", "Day", "Month", "Year"
+            
+        Returns:
+            (时间标签列表, 平均准确率列表, 练习次数列表)
+        """
+        lesson_data = self.get_lesson_stats(lesson_identifier)
+        if not lesson_data or "accuracy_history" not in lesson_data:
+            return [], [], []
+        
+        history = lesson_data.get("accuracy_history", [])
+        if not history:
+            return [], [], []
+        
+        # 按时间段分组
+        grouped_data = defaultdict(lambda: {"accuracies": [], "count": 0})
+        
+        for record in history:
+            try:
+                dt = datetime.fromisoformat(record["timestamp"])
+                
+                # 根据模式生成时间键
+                if mode == "Hour":
+                    time_key = dt.strftime("%Y-%m-%d %H:00")
+                    display_format = "%m-%d\n%H:00"
+                elif mode == "Day":
+                    time_key = dt.strftime("%Y-%m-%d")
+                    display_format = "%m-%d"
+                elif mode == "Month":
+                    time_key = dt.strftime("%Y-%m")
+                    display_format = "%Y-%m"
+                elif mode == "Year":
+                    time_key = dt.strftime("%Y")
+                    display_format = "%Y"
+                else:
+                    time_key = dt.strftime("%Y-%m-%d")
+                    display_format = "%m-%d"
+                
+                grouped_data[time_key]["accuracies"].append(record["accuracy"])
+                grouped_data[time_key]["count"] += 1
+                grouped_data[time_key]["display"] = datetime.strptime(
+                    time_key, 
+                    "%Y-%m-%d %H:%M" if mode == "Hour" else 
+                    "%Y-%m-%d" if mode in ["Day"] else 
+                    "%Y-%m" if mode == "Month" else "%Y"
+                ).strftime(display_format)
+                
+            except (ValueError, KeyError) as e:
+                print(f"Warning: Failed to parse timestamp - {e}")
+                continue
+        
+        # 排序并计算平均值
+        sorted_groups = sorted(grouped_data.items())
+        
+        time_labels = []
+        avg_accuracies = []
+        counts = []
+        
+        for time_key, data in sorted_groups:
+            time_labels.append(data["display"])
+            avg_accuracy = sum(data["accuracies"]) / len(data["accuracies"])
+            avg_accuracies.append(round(avg_accuracy, 2))
+            counts.append(data["count"])
+        
+        return time_labels, avg_accuracies, counts
     
     def format_time(self, seconds: float) -> str:
         """
