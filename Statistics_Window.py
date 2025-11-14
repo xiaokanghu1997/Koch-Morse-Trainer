@@ -662,15 +662,35 @@ class StatisticsWindow(QWidget):
             # 单课程统计模式
             lesson_id = self.combo_lessons.currentIndex()
             lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
-            history = lesson_data.get("accuracy_history", [])
-            if i < len(history):
-                record = history[i]
-                timestamp = record["timestamp"]
-                accuracy = record["accuracy"]
-                # 格式化时间
-                dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-                time_str = dt.strftime("%Y-%m-%d %H:%M")
-                text = f"Time: {time_str}\nAccuracy: {accuracy:.2f}%"
+
+            mode = self.combo_mode.currentText() if self.combo_mode else "Default"
+            if mode == "Default":
+                # 默认模式：显示具体练习时间和准确率
+                history = lesson_data.get("accuracy_history", [])
+                if i < len(history):
+                    record = history[i]
+                    timestamp = record["timestamp"]
+                    accuracy = record["accuracy"]
+                    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+                    time_str = dt.strftime("%Y-%m-%d %H:%M")
+                    text = f"Time: {time_str}\nAccuracy: {accuracy:.2f}%"
+            else:
+                time_labels, accuracies, counts = self.stats_manager.aggregate_by_time_period(
+                    lesson_id, mode
+                )
+                if i < len(time_labels):
+                    time_label = time_labels[i]
+                    accuracy = accuracies[i]
+                    if mode == "Hour":
+                        text = f"Time: {time_label.replace(chr(10), ' ')}\nAccuracy: {accuracy:.2f}%"
+                    elif mode == "Day":
+                        text = f"Date: {time_label}\nAccuracy: {accuracy:.2f}%"
+                    elif mode == "Month":
+                        text = f"Month: {time_label}\nAccuracy: {accuracy:.2f}%"
+                    elif mode == "Year":
+                        text = f"Year: {time_label}\nAccuracy: {accuracy:.2f}%"
+                    else:
+                        text = f"Time: {time_label}\nAccuracy: {accuracy:.2f}%"
         
         # 获取坐标
         xdata = self.line_plot.get_xdata()
@@ -728,8 +748,37 @@ class StatisticsWindow(QWidget):
             text = f"Lesson {lesson_name}\nPractice Count: {count}"
         else:
             # 单课程统计模式
-            count = int(bar.get_height())
-            text = f"Practice Count: {count}"
+            lesson_id = self.combo_lessons.currentIndex()
+            lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
+
+            mode = self.combo_mode.currentText() if self.combo_mode else "Default"
+            if mode == "Default":
+                # 默认模式：显示具体练习时间和次数
+                history = lesson_data.get("accuracy_history", [])
+                if i < len(history):
+                    record = history[i]
+                    timestamp = record["timestamp"]
+                    count = int(bar.get_height())
+                    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+                    time_str = dt.strftime("%Y-%m-%d %H:%M")
+                    text = f"Time: {time_str}\nPractice Count: {count}"
+            else:
+                time_labels, accuracies, counts = self.stats_manager.aggregate_by_time_period(
+                    lesson_id, mode
+                )
+                if i < len(time_labels):
+                    time_label = time_labels[i]
+                    count = counts[i]
+                    if mode == "Hour":
+                        text = f"Time: {time_label.replace(chr(10), ' ')}\nPractice Count: {count}"
+                    elif mode == "Day":
+                        text = f"Date: {time_label}\nPractice Count: {count}"
+                    elif mode == "Month":
+                        text = f"Month: {time_label}\nPractice Count: {count}"
+                    elif mode == "Year":
+                        text = f"Year: {time_label}\nPractice Count: {count}"
+                    else:
+                        text = f"Time: {time_label}\nPractice Count: {count}"
         
         # 提取柱子的边界
         x_left = bar.get_x()  # 柱子的左边界

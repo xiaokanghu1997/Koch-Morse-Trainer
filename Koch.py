@@ -1002,7 +1002,6 @@ class KochWindow(QWidget):
                     lesson_num=self.current_lesson_name,
                     accuracy=accuracy,
                     practice_time=practice_time,
-                    text_index=self.current_text_index
                 )
             
         except FileNotFoundError:

@@ -1,8 +1,8 @@
 ; Koch 安装脚本
 
 #define MyAppName "Koch"
-#define MyAppVersion "1.0.0"
-#define MyAppPublisher "xiaokanghu1997"
+#define MyAppVersion "1.1.0"
+#define MyAppPublisher "XiaokangHU"
 #define MyAppExeName "Koch.exe"
 #define MyResourceGenExeName "Create Koch Morse Training Materials.exe"
 
@@ -34,20 +34,16 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "quicklaunchicon"; Description: "Create a &Quick Launch shortcut"; GroupDescription: "Additional options:"; Flags: unchecked
 
 [Files]
-; 主程序
+; 主程序（已包含 Config.py, Statistics.py, Statistics_Window.py, Logo文件夹）
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; 资源生成器
+; 资源生成器（已包含 Config.py）
 Source: "..\dist\{#MyResourceGenExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; 配置文件（如果有）
-Source: "..\Config.py"; DestDir: "{app}"; Flags: ignoreversion
-; Logo（如果有）
-Source: "..\Logo\*"; DestDir: "D:\Program Files (x86)\Koch\Logo"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; 开始菜单
 Name: "{group}\Koch"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Create Koch Morse Training Materials"; Filename: "{app}\{#MyResourceGenExeName}"
-Name: "{group}\Uninstall Koch"; Filename: "{uninstallexe}"
+Name: "{group}\Uninstall Koch"; Filename: "{app}\Uninstall\unins000.exe"
 ; 桌面快捷方式
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 ; 快速启动
