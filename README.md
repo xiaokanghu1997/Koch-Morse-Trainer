@@ -16,12 +16,6 @@
 - ✅ 深色/浅色主题切换
 - ✅ 练习文本高亮显示
 
-## 安装依赖
-
-```bashs
-pip install PySide6 PySide6-Fluent-Widgets pyqtgraph scipy numpy
-```
-
 ## 使用方法
 
 1. 运行 `Koch_Setup_v1.1.0.exe ` 安装软件

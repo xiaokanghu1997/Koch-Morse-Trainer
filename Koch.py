@@ -7,29 +7,23 @@ Date: 2025-11-10
 Version: 1.1.0
 """
 
-# ==================== 导入模块 ====================
-
-# 标准库
 import sys
 from ctypes import windll, byref, sizeof, c_int
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from datetime import datetime
 
-# 第三方库 - PySide6
 from PySide6 import QtGui
 from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize
 from PySide6.QtGui import QShortcut, QKeySequence, QIcon, QFont
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 
-# 第三方库 - qfluentwidgets
 from qfluentwidgets import (
     BodyLabel, StrongBodyLabel, ComboBox, ProgressBar, 
     PushButton, TextEdit, setTheme, Theme, SwitchButton, FluentIcon
 )
 
-# 配置库
 from Config import config
 from Statistics import stats_manager
 
