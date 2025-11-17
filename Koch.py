@@ -1178,15 +1178,30 @@ class KochWindow(QWidget):
         # 传入当前主题状态（True=深色，False=浅色）
         current_theme = self.switch_theme.isChecked()
         current_transparent = self.switch_transparency.isChecked()
+
+        # 创建统计窗口实例
+        statistics_window = StatisticsWindow(
+            stats_manager,
+            current_theme,
+            current_transparent,
+            parent=self
+        )
+
+        # 设置模态窗口，阻塞主窗口交互
+        statistics_window.setWindowModality(Qt.WindowModality.ApplicationModal)
+
+        # 计算居中位置
+        parent_geometry = self.geometry()
+        child_width = statistics_window.width()
+        child_height = statistics_window.height()
     
-        if not hasattr(self, 'statistics_window') or not self.statistics_window.isVisible():
-            self.statistics_window = StatisticsWindow(stats_manager, current_theme, current_transparent)
-            self.statistics_window.show()
-        else:
-            # 如果窗口已存在，更新主题并激活
-            self.statistics_window.apply_theme(current_theme)
-            self.statistics_window.activateWindow()
-            self.statistics_window.raise_()
+        x = parent_geometry.x() + (parent_geometry.width() - child_width) // 2
+        y = parent_geometry.y() + (parent_geometry.height() - child_height) // 2
+    
+        statistics_window.move(x, y)
+    
+        # 模态显示（阻塞主窗口）
+        statistics_window.exec()
     
     # ==================== 窗口事件处理 ====================
     

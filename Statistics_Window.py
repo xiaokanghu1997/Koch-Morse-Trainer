@@ -14,7 +14,7 @@ from typing import Optional
 from PySide6 import QtGui
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog
 
 from qfluentwidgets import (
     BodyLabel, StrongBodyLabel, ComboBox, 
@@ -29,7 +29,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from Config import config
 
 
-class StatisticsWindow(QWidget):
+class StatisticsWindow(QDialog):
     """
     统计数据展示窗口
     
@@ -79,7 +79,8 @@ class StatisticsWindow(QWidget):
         self, 
         stats_manager, 
         is_dark_theme: bool = False, 
-        is_transparent: bool = False
+        is_transparent: bool = False,
+        parent: Optional[QWidget] = None
     ):
         """
         初始化统计窗口
@@ -89,7 +90,7 @@ class StatisticsWindow(QWidget):
             is_dark_theme: 是否应用深色主题
             is_transparent: 是否应用透明效果
         """
-        super().__init__()
+        super().__init__(parent)
         self.stats_manager = stats_manager
         
         # 设置窗口基础属性
@@ -104,6 +105,9 @@ class StatisticsWindow(QWidget):
         self.annot = None
         self.highlight_line = None
         self.highlight_bar = None
+
+        # 画图初始化标志位
+        self._chart_initialized = False
         
         # 设置用户界面
         self.setup_ui()
@@ -199,9 +203,20 @@ class StatisticsWindow(QWidget):
         self.fig_canvas.mpl_connect("motion_notify_event", self.on_hover)
         
         self.hbox2.addWidget(self.fig_canvas)
+
+    # ==================== 延迟渲染图表 ====================
+
+    def showEvent(self, event) -> None:
+        """
+        窗口显示事件处理 - 延迟渲染图表
         
-        # 初始化图表
-        self.update_chart()
+        第一次显示窗口时渲染图表，避免初始化时的性能开销
+        """
+        super().showEvent(event)
+
+        if not self._chart_initialized:
+            self.update_chart()
+            self._chart_initialized = True
     
     # ==================== 图表更新方法 ====================
     
@@ -1060,7 +1075,7 @@ if __name__ == "__main__":
     
     stats_window = StatisticsWindow(
         stats_manager, 
-        is_dark_theme=False, 
+        is_dark_theme=True, 
         is_transparent=False
     )
     stats_window.show()

@@ -37,8 +37,11 @@ class StatisticsManager:
         
         自动加载已有的统计数据，如果文件不存在则创建默认数据结构
         """
-        self.stats_file = config.base_dir / "statistics.json"
+        self.stats_file = config.base_dir / "Statistics.json"
         self.data = self.load_statistics()
+
+        self._lesson_cache = {}  # 课程数据缓存，按编号索引
+        self._overall_cache = None  # 总体统计缓存
     
     # ==================== 数据加载与保存 ====================
     
@@ -130,6 +133,10 @@ class StatisticsManager:
             self.data["average_accuracy"] = round(total_avg, 2)
         else:
             self.data["average_accuracy"] = 0.0
+        
+        # 清除缓存
+        self._lesson_cache.clear()
+        self._overall_cache = None
     
     # ==================== 练习记录管理 ====================
     
@@ -195,6 +202,10 @@ class StatisticsManager:
         
         # 保存数据
         self.save_statistics()
+
+        # 清除缓存
+        self._lesson_cache.clear()
+        self._overall_cache = None
     
     # ==================== 数据查询方法 ====================
     
@@ -225,7 +236,16 @@ class StatisticsManager:
             lesson_number = self.extract_lesson_number(str(lesson_identifier))
             lesson_key = str(lesson_number)
         
-        return self.data["lessons"].get(lesson_key)
+        # 检查缓存
+        if lesson_key in self._lesson_cache:
+            return self._lesson_cache[lesson_key]
+        
+        # 从数据中获取并缓存
+        lesson_data = self.data["lessons"].get(lesson_key)
+        if lesson_data is not None:
+            self._lesson_cache[lesson_key] = lesson_data
+        
+        return lesson_data
     
     def get_overall_stats(self) -> Dict[str, Any]:
         """
@@ -241,13 +261,21 @@ class StatisticsManager:
                 "practiced_lesson_names": List[str]     # 课程名称列表
             }
         """
-        return {
+        # 检查缓存
+        if self._overall_cache is not None:
+            return self._overall_cache
+        
+        # 构建结果并缓存
+        result = {
             "total_practice_time": self.data["total_practice_time"],
             "total_practice_count": self.data["total_practice_count"],
             "average_accuracy": self.data["average_accuracy"],
             "practiced_lesson_numbers": self.data["practiced_lesson_numbers"],
             "practiced_lesson_names": self.data["practiced_lesson_names"]
         }
+
+        self._overall_cache = result
+        return result
     
     def get_recent_history(
         self, 
