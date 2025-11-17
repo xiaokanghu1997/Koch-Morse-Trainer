@@ -71,7 +71,7 @@ class StatisticsWindow(QDialog):
     annot: plt.Annotation               # 悬停提示框
     
     # ==================== 类型注解 - 状态变量 ====================
-    stats_manager: Any                  # 统计管理器实例
+    stats_manager: any                  # 统计管理器实例
     is_dark_theme: bool                 # 是否为深色主题
     annot_config: dict                  # 提示框配置
     
@@ -372,7 +372,7 @@ class StatisticsWindow(QDialog):
             # ========== 原始数据(逐次练习) ==========
             history = lesson_data.get("accuracy_history", [])
             timestamps = [
-                datetime.strptime(record["timestamp"], "%Y-%m-%dT%H:%M:%S") 
+                datetime.fromisoformat(record["timestamp"])
                 for record in history
             ]
             formatted = [dt.strftime("%m-%d\n%H:%M") for dt in timestamps]
@@ -686,7 +686,7 @@ class StatisticsWindow(QDialog):
                     record = history[i]
                     timestamp = record["timestamp"]
                     accuracy = record["accuracy"]
-                    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+                    dt = datetime.fromisoformat(timestamp)
                     time_str = dt.strftime("%Y-%m-%d %H:%M")
                     text = f"Time: {time_str}\nAccuracy: {accuracy:.2f}%"
             else:
@@ -774,7 +774,7 @@ class StatisticsWindow(QDialog):
                     record = history[i]
                     timestamp = record["timestamp"]
                     count = int(bar.get_height())
-                    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+                    dt = datetime.fromisoformat(timestamp)
                     time_str = dt.strftime("%Y-%m-%d %H:%M")
                     text = f"Time: {time_str}\nPractice Count: {count}"
             else:
@@ -1063,21 +1063,3 @@ class StatisticsWindow(QDialog):
             }
         
         self.is_dark_theme = dark_mode
-
-
-# ==================== 测试代码 ====================
-if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
-    from Statistics import stats_manager
-    import sys
-    
-    app = QApplication(sys.argv)
-    
-    stats_window = StatisticsWindow(
-        stats_manager, 
-        is_dark_theme=True, 
-        is_transparent=False
-    )
-    stats_window.show()
-    
-    sys.exit(app.exec())

@@ -13,7 +13,7 @@ from typing import Optional, Dict, List
 from datetime import datetime
 
 from PySide6 import QtGui
-from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize
+from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize, QSignalBlocker
 from PySide6.QtGui import QShortcut, QKeySequence, QIcon, QFont
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
@@ -578,18 +578,14 @@ class KochWindow(QWidget):
         
         # 只有在文本实际改变时才更新（避免无限循环）
         if current_text != upper_text:
-            # 临时断开信号连接，避免递归触发
-            self.text_input.textChanged.disconnect(self._convert_input_to_uppercase)
+            # 使用信号阻塞器，避免递归触发
+            with QSignalBlocker(self.text_input):
+                # 设置大写文本
+                self.text_input.setPlainText(upper_text)
             
-            # 设置大写文本
-            self.text_input.setPlainText(upper_text)
-            
-            # 恢复光标位置
-            cursor.setPosition(current_position)
-            self.text_input.setTextCursor(cursor)
-            
-            # 重新连接信号
-            self.text_input.textChanged.connect(self._convert_input_to_uppercase)
+                # 恢复光标位置
+                cursor.setPosition(current_position)
+                self.text_input.setTextCursor(cursor)
     
     def _reset_check_button(self):
         """重置检查按钮到初始状态（内部方法）"""
@@ -771,19 +767,11 @@ class KochWindow(QWidget):
 
         self.text_player.setSource(QUrl.fromLocalFile(str(audio_file)))
 
-        # 重新连接信号（如果之前断开过）
-        try:
-            self.text_input.textChanged.disconnect(self._convert_input_to_uppercase)
-        except (TypeError, RuntimeError):
-            # 如果信号未连接或已断开，忽略错误
-            pass
-
-        self.text_input.clear()  # 清空输入框
-        self.text_input.setPlainText("")  # 重置为纯文本
-        self.text_input.setReadOnly(False)  # 允许输入
-
-        # 重新连接信号
-        self.text_input.textChanged.connect(self._convert_input_to_uppercase)
+        # 使用信号阻塞器，避免触发信号
+        with QSignalBlocker(self.text_input):
+            self.text_input.clear()  # 清空输入框
+            self.text_input.setPlainText("")  # 重置为纯文本
+            self.text_input.setReadOnly(False)  # 允许输入
 
         self.clear_layout(self.hbox62)  # 清除结果显示
         self._reset_check_button()  # 重置检查按钮状态
@@ -802,6 +790,8 @@ class KochWindow(QWidget):
             if self.text_player.position() == 0:  # 从头开始，启动倒计时
                 self.start_countdown()
             else:  # 继续播放
+                if self.practice_start_time is None:
+                    self.practice_start_time = datetime.now()
                 self.text_player.play()
                 self.set_play_button_state(self.btn_text_play_pause, True)
                 self.is_text_playing = True
@@ -971,17 +961,19 @@ class KochWindow(QWidget):
                 for i in range(len(result_characters), len(practice_text)):  # 多余字符：蓝色 + 浅蓝色背景
                     html_text += f'<span style="{font_family} color: #0066CC; background-color: #E6F2FF;">{practice_text[i]}</span>'
             
-            # 断开大写转换信号，避免干扰HTML设置
-            self.text_input.textChanged.disconnect(self._convert_input_to_uppercase)
+            # 使用信号阻塞器，避免触发信号
+            with QSignalBlocker(self.text_input):
+                # 显示标准答案
+                separator = f'<br><span style="{font_family} color: #888888;">----------------------------</span>'
+                answer_text = f'<br><span style="{font_family} color: #888888;">{result_characters}</span>'
 
-            # 显示标准答案
-            separator = f'<br><span style="{font_family} color: #888888;">----------------------------</span>'
-            answer_text = f'<br><span style="{font_family} color: #888888;">{result_characters}</span>'
+                full_html = html_text + separator + answer_text
 
-            full_html = html_text + separator + answer_text
+                # 显示高亮结果（不清空内容）
+                self.text_input.setHtml(full_html)
 
-            # 显示高亮结果（不清空内容）
-            self.text_input.setHtml(full_html)
+                # 设置text_input为只读，防止用户修改结果
+                self.text_input.setReadOnly(True)
 
             # 计算并显示准确率
             accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
@@ -990,18 +982,18 @@ class KochWindow(QWidget):
             comment = self._get_accuracy_comment(accuracy)
             self.hbox62.addWidget(BodyLabel(f"Accuracy: {accuracy:.2f}%{comment}"))
 
-            # 设置text_input为只读，防止用户修改结果
-            self.text_input.setReadOnly(True)
-
             # 保存统计数据
             if self.practice_start_time:
                 self.practice_end_time = datetime.now()
                 practice_time = (self.practice_end_time - self.practice_start_time).total_seconds()
-                stats_manager.add_practice_record(
-                    lesson_num=self.current_lesson_name,
-                    accuracy=accuracy,
-                    practice_time=practice_time,
-                )
+            else:
+                # 如果没有记录开始时间，使用音频时长作为练习时间
+                practice_time = self.text_player.duration() / 1000.0  # 转化为秒
+            stats_manager.add_practice_record(
+                lesson_name=self.current_lesson_name,
+                accuracy=accuracy,
+                practice_time=practice_time,
+            )
             
         except FileNotFoundError:
             # 文件不存在时的错误处理
