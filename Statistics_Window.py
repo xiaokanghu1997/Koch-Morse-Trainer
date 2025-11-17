@@ -71,13 +71,13 @@ class StatisticsWindow(QDialog):
     annot: plt.Annotation               # 悬停提示框
     
     # ==================== 类型注解 - 状态变量 ====================
-    stats_manager: any                  # 统计管理器实例
+    stats_manager: Any                  # 统计管理器实例
     is_dark_theme: bool                 # 是否为深色主题
     annot_config: dict                  # 提示框配置
     
     def __init__(
         self, 
-        stats_manager, 
+        statistics_manager,
         is_dark_theme: bool = False, 
         is_transparent: bool = False,
         parent: Optional[QWidget] = None
@@ -86,12 +86,12 @@ class StatisticsWindow(QDialog):
         初始化统计窗口
         
         Args:
-            stats_manager: 统计数据管理器实例
+            statistics_manager: 统计数据管理器实例
             is_dark_theme: 是否应用深色主题
             is_transparent: 是否应用透明效果
         """
         super().__init__(parent)
-        self.stats_manager = stats_manager
+        self.stats_manager = statistics_manager
         
         # 设置窗口基础属性
         self.setWindowTitle("Statistics")
@@ -664,7 +664,7 @@ class StatisticsWindow(QDialog):
             offset: 提示框偏移量(像素)
         """
         i = ind["ind"][0]
-        
+        text = ""
         # 获取数据
         if self.combo_lessons.currentIndex() == 0:
             # 全局统计模式
@@ -752,7 +752,7 @@ class StatisticsWindow(QDialog):
             offset: 提示框偏移量(像素)
         """
         bar = self.bar_plot[i]
-        
+        text = ""
         # 获取数据
         if self.combo_lessons.currentIndex() == 0:
             # 全局统计模式

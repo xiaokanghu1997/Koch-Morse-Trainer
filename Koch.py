@@ -9,8 +9,7 @@ Version: 1.1.0
 
 import sys
 from ctypes import windll, byref, sizeof, c_int
-from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List
 from datetime import datetime
 
 from PySide6 import QtGui

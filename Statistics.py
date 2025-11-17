@@ -64,7 +64,7 @@ class StatisticsManager:
             "total_practice_time": 0,           # 总练习时长(秒)
             "total_practice_count": 0,          # 总练习次数
             "average_accuracy": 0.0,            # 平均准确率(%)
-            "practiced_lesson_numbers": [0],    # 已练习课程编号列表(0代表所有课程)
+            "practiced_lesson_numbers": [0],    # 已练习课程编号列表(0 代表所有课程)
             "practiced_lesson_names": ["All learned lessons"],  # 课程名称列表
             "lessons": {}                       # 各课程统计，按编号索引
         }
@@ -83,7 +83,8 @@ class StatisticsManager:
     
     # ==================== 辅助方法 ====================
     
-    def extract_lesson_number(self, lesson_name: str) -> int:
+    @staticmethod
+    def extract_lesson_number(lesson_name: str) -> int:
         """
         从课程名称中提取编号
         
@@ -119,7 +120,7 @@ class StatisticsManager:
         # 按编号排序
         lesson_info.sort(key=lambda x: x[0])
         
-        # 更新课程编号和名称列表(0开头，代表所有已学课程)
+        # 更新课程编号和名称列表(0 开头，代表所有已学课程)
         self.data["practiced_lesson_numbers"] = [0] + [num for num, _ in lesson_info]
         self.data["practiced_lesson_names"] = ["All learned lessons"] + [name for _, name in lesson_info]
         
@@ -384,7 +385,8 @@ class StatisticsManager:
     
     # ==================== 工具方法 ====================
     
-    def format_time(self, seconds: float) -> str:
+    @staticmethod
+    def format_time(seconds: float) -> str:
         """
         格式化时间显示
         

@@ -539,7 +539,8 @@ class KochMethodTrainer:
         # 4. 清空学习进度记录
         self.clear_progress_settings()
     
-    def clear_progress_settings(self) -> None:
+    @staticmethod
+    def clear_progress_settings() -> None:
         """
         清空学习进度的注册表记录
         

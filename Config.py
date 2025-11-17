@@ -10,7 +10,7 @@ Version: 1.1.0
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 class Config:
