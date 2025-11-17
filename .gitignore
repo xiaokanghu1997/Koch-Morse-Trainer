@@ -36,3 +36,6 @@ Resource/
 *.tmp
 *.bak
 ~*
+
+# 其他文件
+Other/

@@ -329,7 +329,7 @@ class StatisticsManager:
             return [], [], []
         
         # 按时间段分组
-        grouped_data = defaultdict(lambda: {"accuracies": [], "count": 0})
+        grouped_data = defaultdict(lambda: {"accuracies": [], "count": 0, "time": 0})
         
         for record in history:
             try:
@@ -355,7 +355,8 @@ class StatisticsManager:
                 # 添加到分组
                 grouped_data[time_key]["accuracies"].append(record["accuracy"])
                 grouped_data[time_key]["count"] += 1
-                
+                grouped_data[time_key]["time"] += record.get("practice_time", 0)
+
                 # 保存显示格式
                 grouped_data[time_key]["display"] = datetime.strptime(
                     time_key, 
@@ -374,15 +375,17 @@ class StatisticsManager:
         time_labels = []
         avg_accuracies = []
         counts = []
+        practice_times = []
         
         for time_key, data in sorted_groups:
             time_labels.append(data["display"])
             avg_accuracy = sum(data["accuracies"]) / len(data["accuracies"])
             avg_accuracies.append(round(avg_accuracy, 2))
             counts.append(data["count"])
-        
-        return time_labels, avg_accuracies, counts
-    
+            practice_times.append(data["time"])
+
+        return time_labels, avg_accuracies, counts, practice_times
+
     # ==================== 工具方法 ====================
     
     @staticmethod

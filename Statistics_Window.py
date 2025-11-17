@@ -42,6 +42,18 @@ class StatisticsWindow(QDialog):
     """
     
     # ==================== 常量定义 ====================
+    WINDOW_WIDTH = 822   # 窗口宽度
+    WINDOW_HEIGHT = 358  # 窗口高度
+
+    # 画图配置
+    HIGHER_POSITION = [0.065, 0.15, 0.886, 0.72]  # 非小时模式坐标轴位置
+    LOWER_POSITION = [0.065, 0.198, 0.886, 0.67]  # 小时模式坐标轴位置
+    MODE_DEFAULT_Y_LABEL = "Practice Time"
+    MODE_DEFAULT_Y_LIMIT = 10
+    MODE_OTHER_Y_LABEL = "Practice Count"
+    MODE_OTHER_Y_LIMIT = 20
+
+    # 颜色配置
     DARK_TITLE_BAR_COLOR = 0x00202020   # 深色模式标题栏颜色 RGB(32, 32, 32)
     LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3  # 浅色模式标题栏颜色 RGB(243, 243, 243)
     
@@ -95,7 +107,7 @@ class StatisticsWindow(QDialog):
         
         # 设置窗口基础属性
         self.setWindowTitle("Statistics")
-        self.setFixedSize(822, 358)
+        self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
         
         # 应用主题和透明度
         self.toggle_theme(is_dark_theme)
@@ -324,8 +336,8 @@ class StatisticsWindow(QDialog):
         右Y轴: 练习次数
         """
         # 设置坐标轴位置
-        self.ax1.set_position([0.065, 0.15, 0.886, 0.72])
-        self.ax2.set_position([0.065, 0.15, 0.886, 0.72])
+        self.ax1.set_position(self.HIGHER_POSITION)
+        self.ax2.set_position(self.HIGHER_POSITION)
         
         # 获取数据
         avg_accuracy = self.stats_manager.get_overall_stats().get("average_accuracy")
@@ -377,14 +389,14 @@ class StatisticsWindow(QDialog):
             ]
             formatted = [dt.strftime("%m-%d\n%H:%M") for dt in timestamps]
             accuracies = [record["accuracy"] for record in history]
-            counts = list(range(1, len(history) + 1))
+            counts = [record["practice_time"] / 60 for record in history]
             
             # 设置坐标轴位置
-            self.ax1.set_position([0.065, 0.198, 0.886, 0.67])
-            self.ax2.set_position([0.065, 0.198, 0.886, 0.67])
+            self.ax1.set_position(self.LOWER_POSITION)
+            self.ax2.set_position(self.LOWER_POSITION)
         else:
             # ========== 按时间聚合 ==========
-            formatted, accuracies, counts = self.stats_manager.aggregate_by_time_period(
+            formatted, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
                 lesson_id, mode
             )
             if not formatted:  # 如果没有数据
@@ -394,15 +406,15 @@ class StatisticsWindow(QDialog):
             
             # 根据模式调整坐标轴位置
             if mode != "Hour":
-                self.ax1.set_position([0.065, 0.15, 0.886, 0.72])
-                self.ax2.set_position([0.065, 0.15, 0.886, 0.72])
+                self.ax1.set_position(self.HIGHER_POSITION)
+                self.ax2.set_position(self.HIGHER_POSITION)
             else:
-                self.ax1.set_position([0.065, 0.198, 0.886, 0.67])
-                self.ax2.set_position([0.065, 0.198, 0.886, 0.67])
+                self.ax1.set_position(self.LOWER_POSITION)
+                self.ax2.set_position(self.LOWER_POSITION)
         
         # X轴设置
         x = list(range(1, len(formatted) + 1))
-        self.ax1.set_xlabel("Practice Time", labelpad=6)
+        self.ax1.set_xlabel("Time", labelpad=6)
         self.ax1.set_xlim(0.5, len(formatted) + 0.5)
         self.ax1.set_xticks(x)
         self.ax1.set_xticklabels(formatted)
@@ -426,6 +438,20 @@ class StatisticsWindow(QDialog):
             counts: 练习次数数据
             avg_accuracy: 平均准确率
         """
+        # 根据模式调整右Y轴标签和范围
+        if self.combo_mode and self.combo_mode.currentText() == "Default":
+            self.ax2.set_ylabel(self.MODE_DEFAULT_Y_LABEL, labelpad=6)
+            self.ax2.set_ylim(0, self.MODE_DEFAULT_Y_LIMIT)
+            y_range = range(0, self.MODE_DEFAULT_Y_LIMIT + 1, 1)
+            self.ax2.set_yticks(y_range)
+            self.ax2.set_yticklabels([f"{i}" for i in y_range])
+        else:
+            self.ax2.set_ylabel(self.MODE_OTHER_Y_LABEL, labelpad=6)
+            self.ax2.set_ylim(0, self.MODE_OTHER_Y_LIMIT)
+            y_range = range(0, self.MODE_OTHER_Y_LIMIT + 1, 2)
+            self.ax2.set_yticks(y_range)
+            self.ax2.set_yticklabels([f"{i}" for i in y_range])
+
         # 根据主题选择颜色
         if self.is_dark_theme:
             line_color = "#C8B5FC"       # 浅紫色(折线)
@@ -471,6 +497,7 @@ class StatisticsWindow(QDialog):
         
         # ========== 右轴(练习次数) ==========
         self.ax2.tick_params(axis="both", direction="in", width=1, zorder=5)
+        self.ax2.yaxis.set_label_position("right")
         bar = self.ax2.bar(x, counts, color=bar_color, zorder=0.5)
         
         # 阈值线(90%准确率)
@@ -495,14 +522,9 @@ class StatisticsWindow(QDialog):
             clip_on=False
         )
         
-        self.ax2.set_ylabel("Practice Count", labelpad=6)
-        self.ax2.yaxis.set_label_position("right")
-        self.ax2.set_ylim(0, 20)
-        self.ax2.set_yticks(range(0, 21, 2))
-        self.ax2.set_yticklabels([f"{i}" for i in range(0, 21, 2)])
-        
+        # 网格线
         self.ax2.hlines(
-            y=range(0, 21, 2), xmin=0, xmax=1,
+            y=y_range, xmin=0, xmax=1,
             color=grid_color,
             alpha=grid_alpha,
             linestyle="--",
@@ -684,29 +706,20 @@ class StatisticsWindow(QDialog):
                 history = lesson_data.get("accuracy_history", [])
                 if i < len(history):
                     record = history[i]
-                    timestamp = record["timestamp"]
                     accuracy = record["accuracy"]
-                    dt = datetime.fromisoformat(timestamp)
-                    time_str = dt.strftime("%Y-%m-%d %H:%M")
-                    text = f"Time: {time_str}\nAccuracy: {accuracy:.2f}%"
+                    practice_time = record["practice_time"]
+                    practice_times = self.stats_manager.format_time(practice_time)
+                    text = f"Practice Time: {practice_times}\nAccuracy: {accuracy:.2f}%"
             else:
-                time_labels, accuracies, counts = self.stats_manager.aggregate_by_time_period(
+                time_labels, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
                     lesson_id, mode
                 )
                 if i < len(time_labels):
-                    time_label = time_labels[i]
                     accuracy = accuracies[i]
-                    if mode == "Hour":
-                        text = f"Time: {time_label.replace(chr(10), ' ')}\nAccuracy: {accuracy:.2f}%"
-                    elif mode == "Day":
-                        text = f"Date: {time_label}\nAccuracy: {accuracy:.2f}%"
-                    elif mode == "Month":
-                        text = f"Month: {time_label}\nAccuracy: {accuracy:.2f}%"
-                    elif mode == "Year":
-                        text = f"Year: {time_label}\nAccuracy: {accuracy:.2f}%"
-                    else:
-                        text = f"Time: {time_label}\nAccuracy: {accuracy:.2f}%"
-        
+                    practice_time = practice_times[i]
+                    practice_times = self.stats_manager.format_time(practice_time)
+                    text = f"Practice Time: {practice_times}\nAccuracy: {accuracy:.2f}%"
+                
         # 获取坐标
         xdata = self.line_plot.get_xdata()
         ydata = self.line_plot.get_ydata()
@@ -772,28 +785,19 @@ class StatisticsWindow(QDialog):
                 history = lesson_data.get("accuracy_history", [])
                 if i < len(history):
                     record = history[i]
-                    timestamp = record["timestamp"]
+                    practice_time = record["practice_time"]
+                    practice_time = self.stats_manager.format_time(practice_time)
                     count = int(bar.get_height())
-                    dt = datetime.fromisoformat(timestamp)
-                    time_str = dt.strftime("%Y-%m-%d %H:%M")
-                    text = f"Time: {time_str}\nPractice Count: {count}"
+                    text = f"Practice Time: {practice_time}\nPractice Count: {count}"
             else:
-                time_labels, accuracies, counts = self.stats_manager.aggregate_by_time_period(
+                time_labels, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
                     lesson_id, mode
                 )
                 if i < len(time_labels):
-                    time_label = time_labels[i]
                     count = counts[i]
-                    if mode == "Hour":
-                        text = f"Time: {time_label.replace(chr(10), ' ')}\nPractice Count: {count}"
-                    elif mode == "Day":
-                        text = f"Date: {time_label}\nPractice Count: {count}"
-                    elif mode == "Month":
-                        text = f"Month: {time_label}\nPractice Count: {count}"
-                    elif mode == "Year":
-                        text = f"Year: {time_label}\nPractice Count: {count}"
-                    else:
-                        text = f"Time: {time_label}\nPractice Count: {count}"
+                    practice_time = practice_times[i]
+                    practice_time = self.stats_manager.format_time(practice_time)
+                    text = f"Practice Time: {practice_time}\nPractice Count: {count}"
         
         # 提取柱子的边界
         x_left = bar.get_x()  # 柱子的左边界
