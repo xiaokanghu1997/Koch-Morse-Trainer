@@ -7,11 +7,11 @@
 #define MyResourceGenExeName "Create Koch Morse Training Materials.exe"
 
 [Setup]
-AppId={{A3B2C1D4-E5F6-7890-ABCD-1234567890AB}}
+AppId={{70A94B08-79DB-456D-BF0E-61E5924F444D}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName=D:\Program Files (x86)\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=..\Build
 OutputBaseFilename=Koch_Setup_v{#MyAppVersion}
@@ -21,7 +21,6 @@ SetupIconFile=logo.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 WizardImageFile=logo.bmp
 UninstallFilesDir={app}\Uninstall
-UninstallDisplayName=Uninstall {#MyAppName}
 
 ; 要求管理员权限（因为要写入D盘）
 PrivilegesRequired=admin
@@ -43,7 +42,6 @@ Source: "..\dist\{#MyResourceGenExeName}"; DestDir: "{app}"; Flags: ignoreversio
 ; 开始菜单
 Name: "{group}\Koch"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Create Koch Morse Training Materials"; Filename: "{app}\{#MyResourceGenExeName}"
-Name: "{group}\Uninstall Koch"; Filename: "{app}\Uninstall\unins000.exe"
 ; 桌面快捷方式
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 ; 快速启动
