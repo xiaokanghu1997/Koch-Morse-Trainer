@@ -787,8 +787,7 @@ class StatisticsWindow(QDialog):
                     record = history[i]
                     practice_time = record["practice_time"]
                     practice_time = self.stats_manager.format_time(practice_time)
-                    count = int(bar.get_height())
-                    text = f"Practice Time: {practice_time}\nPractice Count: {count}"
+                    text = f"Practice Time: {practice_time}\nPractice Count: 1"
             else:
                 time_labels, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
                     lesson_id, mode
