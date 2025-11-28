@@ -2,9 +2,9 @@
 Koch 配置管理模块
 处理路径、设置等配置项
 
-Author: xiaokanghu1997
-Date: 2025-11-10
-Version: 1.1.0
+Author: Xiaokang HU
+Date: 2025-11-28
+Version: 1.2.0
 """
 
 import sys
@@ -18,8 +18,8 @@ class Config:
     
     # ==================== 常量定义 ====================
     APP_NAME: str = "Koch"
-    APP_VERSION: str = "1.1.0"
-    AUTHOR: str = "xiaokanghu1997"
+    APP_VERSION: str = "1.2.0"
+    AUTHOR: str = "Xiaokang HU"
     
     def __init__(self):
         """初始化配置管理器"""
@@ -27,7 +27,8 @@ class Config:
         self._resource_dir = None
         self._config_file = None
         self._user_settings = {}
-        self._logo_dir = None  # 新增：Logo 目录
+        self._logo_dir = None  # Logo 目录
+        self._echarts_dir = None  # Echarts 目录
         
         self._init_paths()
         self._load_user_settings()
@@ -50,13 +51,17 @@ class Config:
             if hasattr(sys, '_MEIPASS'):
                 # Logo 从打包的资源中获取
                 self._logo_dir = Path(sys._MEIPASS) / "Logo"
+                # Echarts 从打包的资源中获取
+                self._echarts_dir = Path(sys._MEIPASS) / "Echarts"
             else:
                 # 回退到基础目录
                 self._logo_dir = self._base_dir / "Logo"
+                self._echarts_dir = self._base_dir / "Echarts"
         else:
             # 开发环境：使用脚本所在目录
             self._base_dir = Path(__file__).parent
             self._logo_dir = self._base_dir / "Logo"
+            self._echarts_dir = self._base_dir / "Echarts"
         
         # 确保目录存在
         self._base_dir.mkdir(parents=True, exist_ok=True)
@@ -126,6 +131,16 @@ class Config:
         """
         return self._logo_dir
     
+    @property
+    def echarts_dir(self) -> Path:
+        """
+        获取Echarts目录
+        
+        Returns:
+            Echarts目录的Path对象（打包后从临时目录读取，开发环境从源目录读取）
+        """
+        return self._echarts_dir
+    
     def get_lesson_dir(self, lesson_num: int) -> Path:
         """获取指定课程的目录"""
         path = self._resource_dir / f"Lesson-{lesson_num:02d}"
@@ -164,7 +179,25 @@ class Config:
         
         return logo_path
     
-    def statistics_file(self) -> Path:
+    def get_echarts_html(self, template_name: str) -> Path:
+        """
+        获取Echarts HTML模板文件路径
+
+        Args:
+            template_name: HTML模板文件名, 可选 "calendar.html" 或 "table.html"
+        
+        Returns:
+            HTML模板文件的Path对象
+            - 打包后：从 PyInstaller 临时目录读取
+            - 开发环境：从项目 Echarts 目录读取
+        """
+        html_path = self._echarts_dir / f"{template_name}.html"
+        if not html_path.exists():
+            print(f"Warning: Echarts HTML file not found - {html_path}")
+            
+        return html_path
+    
+    def get_statistics_file(self) -> Path:
         """获取统计数据文件路径"""
         return self.base_dir / "Statistics.json"
     

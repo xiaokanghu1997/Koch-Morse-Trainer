@@ -3,13 +3,13 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: xiaokanghu1997
-Date: 2025-11-13
-Version: 1.1.0
+Date: 2025-11-28
+Version: 1.2.0
 """
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from collections import defaultdict
 
@@ -65,7 +65,7 @@ class StatisticsManager:
             "total_practice_count": 0,          # 总练习次数
             "average_accuracy": 0.0,            # 平均准确率(%)
             "practiced_lesson_numbers": [0],    # 已练习课程编号列表(0 代表所有课程)
-            "practiced_lesson_names": ["All learned lessons"],  # 课程名称列表
+            "practiced_lesson_names": ["All"],  # 课程名称列表
             "lessons": {}                       # 各课程统计，按编号索引
         }
     
@@ -122,7 +122,7 @@ class StatisticsManager:
         
         # 更新课程编号和名称列表(0 开头，代表所有已学课程)
         self.data["practiced_lesson_numbers"] = [0] + [num for num, _ in lesson_info]
-        self.data["practiced_lesson_names"] = ["All learned lessons"] + [name for _, name in lesson_info]
+        self.data["practiced_lesson_names"] = ["All"] + [name for _, name in lesson_info]
         
         # 计算总平均准确率
         total_lessons = len(self.data["lessons"])
@@ -306,7 +306,7 @@ class StatisticsManager:
         self, 
         lesson_identifier: Any, 
         mode: str = "Day"
-    ) -> Tuple[List[str], List[float], List[int]]:
+    ) -> Tuple[List[str], List[float], List[int], List[float]]:
         """
         按时间段聚合练习数据
         
@@ -317,8 +317,8 @@ class StatisticsManager:
             mode: 聚合模式 - "Hour"(小时), "Day"(天), "Month"(月), "Year"(年)
             
         Returns:
-            三元组 (时间标签列表, 平均准确率列表, 练习次数列表)
-            示例: (["01-15", "01-16"], [85.5, 90.2], [3, 5])
+            三元组 (时间标签列表, 平均准确率列表, 练习次数列表, 练习时长列表):
+            示例: (["01-15", "01-16"], [85.5, 90.2], [3, 5], [3600.0, 5400.0])
         """
         lesson_data = self.get_lesson_stats(lesson_identifier)
         if not lesson_data or "accuracy_history" not in lesson_data:
@@ -385,7 +385,112 @@ class StatisticsManager:
             practice_times.append(data["time"])
 
         return time_labels, avg_accuracies, counts, practice_times
-
+    
+    def get_daily_practice_count_by_year(self, year: int) -> Tuple[List[List], Dict[str, Any]]:
+        """
+        获取指定年份每天的练习次数及年度总体统计（所有课程合并统计）
+    
+        统计所有课程在某一年内每天的练习次数总和，以及该年的总体统计信息
+    
+        Args:
+            year: 年份，如 2025
+        
+        Returns:
+            元组 (每日练习数据, 年度统计信息):
+            - 每日练习数据: [["2025-01-01", 3], ["2025-01-02", 0], ...]
+            - 年度统计信息: {
+                "total_practice_count": int,    # 该年总练习次数
+                "total_practice_time": float,   # 该年总练习时长(秒)
+                "average_accuracy": float       # 该年平均准确率(%)
+            }
+        """    
+        # 统计每天的练习次数（遍历所有课程）
+        daily_count = defaultdict(int)
+    
+        # 年度总体统计
+        year_total_count = 0
+        year_total_time = 0.0
+        year_accuracies = []
+    
+        # 遍历所有课程的历史记录
+        for lesson_key, lesson_data in self.data["lessons"].items():
+            history = lesson_data.get("accuracy_history", [])
+        
+            for record in history:
+                try:
+                    dt = datetime. fromisoformat(record["timestamp"])
+                    # 只统计指定年份的数据
+                    if dt.year == year:
+                        date_key = dt.strftime("%Y-%m-%d")
+                        daily_count[date_key] += 1
+                    
+                        # 累加年度统计
+                        year_total_count += 1
+                        year_total_time += record. get("practice_time", 0)
+                        year_accuracies.append(record.get("accuracy", 0))
+                    
+                except (ValueError, KeyError) as e:
+                    print(f"Warning: Failed to parse timestamp - {e}")
+                    continue
+    
+        # 生成该年的所有日期
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+    
+        result = []
+        current_date = start_date
+    
+        while current_date <= end_date:
+            date_str = current_date.strftime("%Y-%m-%d")
+            count = daily_count.get(date_str, 0)
+            result.append([date_str, count])
+            current_date += timedelta(days=1)
+    
+        # 计算年度平均准确率
+        year_avg_accuracy = 0.0
+        if year_accuracies:
+            year_avg_accuracy = round(sum(year_accuracies) / len(year_accuracies), 2)
+    
+        # 构建年度统计信息
+        year_stats = {
+            "total_practice_count": year_total_count,
+            "total_practice_time": round(year_total_time, 2),
+            "average_accuracy": year_avg_accuracy
+        }
+    
+        return result, year_stats
+    
+    def get_all_practice_years(self) -> List[int]:
+        """
+        获取所有练习记录中的年份列表
+    
+        遍历所有课程的历史记录，提取所有出现过的年份，并按升序排序
+    
+        Returns:
+            年份列表，如 [2023, 2024, 2025]
+            如果没有任何练习记录，返回空列表
+        """
+        years = set()
+    
+        # 遍历所有课程的历史记录
+        for lesson_key, lesson_data in self. data["lessons"].items():
+            history = lesson_data.get("accuracy_history", [])
+        
+            for record in history:
+                try:
+                    dt = datetime. fromisoformat(record["timestamp"])
+                    years.add(dt.year)
+                except (ValueError, KeyError) as e:
+                    print(f"Warning: Failed to parse timestamp - {e}")
+                    continue
+        
+        # 如果没有任何数据，返回当前年份
+        if not years:
+            years.add(datetime.now().year)
+    
+        # 转换为列表并排序
+        return sorted(list(years))
+    
     # ==================== 工具方法 ====================
     
     @staticmethod

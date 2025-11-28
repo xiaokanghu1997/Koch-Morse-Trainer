@@ -17,6 +17,7 @@ pyinstaller --onefile ^
     --icon=Installer\logo.ico ^
     --name="Koch" ^
     --add-data="Logo;Logo" ^
+    --add-data="Echarts;Echarts" ^
     --hidden-import=Statistics ^
     --hidden-import=Statistics_Window ^
     --hidden-import=Config ^
@@ -55,6 +56,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ===================================================
 echo   Build completed!
-echo   Installer location: Build\Koch_Setup_v1.1.0.exe
+echo   Installer location: Build\Koch_Setup_v1.2.0.exe
 echo ===================================================
 pause

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; width: 100%">
+
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <style>
+        #container canvas {
+            cursor: default !important;
+        }
+    </style>
+</head>
+
+<body style="height: 100%; width: 100%; background-color: #F3F3F3; margin: 0">
+<div id="container" style="height: 100%; width: 100%"></div>
+
+<script type="text/javascript" src="echarts.min.js"></script>
+
+<script type="text/javascript">
+    const isDark = false;
+    const theme = isDark ? 'dark' : 'light';
+    const dom = document.getElementById('container');
+    const chart = echarts.init(
+        dom,
+        theme,
+        {
+            renderer: 'canvas',
+            useDirtyRect: false,
+            devicePixelRatio: 2
+        }
+    );
+
+    const app = {};
+
+    let option;
+
+    const axisColor = isDark ? '#FFFFFF' : '#000000';
+    const textColor = isDark ? '#FFFFFF' : '#000000';
+    const figureColor = isDark ? '#202020' : '#F3F3F3';
+    const axesColor = isDark ? '#000000' : '#FFFFFF';
+    const nodataColor = isDark ? '#303030' : '#EAEAEA';
+    const itemlevel1Color = isDark ? '#3A7A6F' : '#A5D4CB';
+    const itemlevel2Color = isDark ? '#4A9B8E' : '#7DBFB3';
+    const itemlevel3Color = isDark ? '#5FB2A1' : '#4A9B8E';
+    const itemlevel4Color = isDark ? '#7DD3C4' : '#3A7A6F';
+    const itemlevel5Color = isDark ? '#92E0D3' : '#2A5850';
+    const annotbgColor = isDark ? '#000000' : '#FFFFFF';
+    const annotborderColor = isDark ? '#444444' : '#CCCCCC';
+
+    const dataYear = 2025;
+    const calendarData = [];
+
+    option = {
+        backgroundColor: figureColor,
+        title: {
+            show: false
+        },
+        tooltip: {
+            trigger: 'item',
+            renderMode: 'html',
+            backgroundColor: annotbgColor,
+            borderColor: annotborderColor,
+            borderWidth: 1,
+            formatter: function (params) {
+                const date = echarts.format.formatTime('yyyy-MM-dd', params.data[0]);
+                let result = '';
+                result += '<div>' + params.marker + ' <span style="font-weight:550">' + date + '</span></div>';
+                result += '<div>Practice Count: <span style="font-weight:550">' + params.data[1] + '</span></div>';
+                return result;
+            },
+            padding: 6,
+            textStyle: {
+                color: textColor,
+                fontFamily: 'Segoe UI',
+                fontSize: 13.5,
+                lineHeight: 18
+            }
+        },
+        visualMap: {
+            type: 'piecewise',
+            orient: 'horizontal',
+            left: '23.5px',
+            bottom: '3px',
+            pieces: [
+                {gt: 20, color: itemlevel5Color},
+                {gt: 10, lte: 20, color: itemlevel4Color},
+                {gt: 5, lte: 10, color: itemlevel3Color},
+                {gt: 2, lte: 5, color: itemlevel2Color},
+                {gt: 0, lte: 2, color: itemlevel1Color},
+                {value: 0, color: nodataColor}
+            ],
+            text: ['High', 'Less'],
+            showlabel: false,
+            itemGap: 4,
+            itemWidth: 12,
+            itemHeight: 12,
+            itemSymbol: 'rect',
+            textStyle: {
+                color: textColor,
+                fontFamily: 'Segoe UI',
+                fontSize: 13.5,
+            }
+        },
+        calendar: {
+            top: 'middle',
+            left: '40px',
+            right: '10px',
+            cellSize: 14.9,
+            range: dataYear,
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: axisColor,
+                    width: 1
+                }
+            },
+            itemStyle: {
+                color: nodataColor,
+                borderColor: axesColor,
+                borderWidth: 1
+            },
+            dayLabel: {
+                firstDay: 1,
+                nameMap: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                color: textColor,
+                fontFamily: 'Segoe UI',
+                fontSize: 13.5,
+                margin: 5
+            },
+            monthLabel: {
+                nameMap: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                color: textColor,
+                fontFamily: 'Segoe UI',
+                fontSize: 13.5,
+                margin: 5
+            },
+            yearLabel: {show: false}
+        },
+        series: {
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            data: calendarData,
+            emphasis: {
+                itemStyle: {
+                    color: 'inherit',
+                }
+            }
+        }
+    };
+
+    if (option && typeof option === 'object') {
+        chart.setOption(option);
+    }
+
+    window.addEventListener('resize', chart.resize);
+</script>
+</body>
+
+</html>

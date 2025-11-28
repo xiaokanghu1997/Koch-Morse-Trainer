@@ -1,10 +1,10 @@
 """
-Koch - 莫尔斯电码训练器
-用于学习和练习莫尔斯电码字符识别
+Koch - 摩尔斯电码训练器
+用于学习和练习摩尔斯电码字符识别
 
-Author: xiaokanghu1997
-Date: 2025-11-10
-Version: 1.1.0
+Author: Xiaokang HU
+Date: 2025-11-28
+Version: 1.2.0
 """
 
 import sys
@@ -31,86 +31,86 @@ class KochWindow(QWidget):
     """Koch主窗口类"""
     
     # ==================== 常量定义 ====================
-    COUNTDOWN_SECONDS = 3  # 倒计时秒数
-    ICON_SIZE = QSize(12, 12)  # 按钮图标大小
-    WINDOW_WIDTH = 777  # 窗口宽度
-    WINDOW_HEIGHT = 300  # 窗口高度
+    COUNTDOWN_SECONDS = 3               # 倒计时秒数
+    ICON_SIZE = QSize(12, 12)           # 按钮图标大小
+    WINDOW_WIDTH = 777                  # 窗口宽度
+    WINDOW_HEIGHT = 300                 # 窗口高度
     
     # 颜色配置（BGR格式）
-    DARK_TITLE_BAR_COLOR = 0x00202020  # 深色模式标题栏颜色 RGB(32, 32, 32)
+    DARK_TITLE_BAR_COLOR = 0x00202020   # 深色模式标题栏颜色 RGB(32, 32, 32)
     LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3  # 浅色模式标题栏颜色 RGB(243, 243, 243)
     
     # 准确率评价阈值
-    EXCELLENT_THRESHOLD = 95.0  # 优秀
-    GREAT_THRESHOLD = 90.0      # 很好
-    GOOD_THRESHOLD = 80.0       # 良好
-    FAIR_THRESHOLD = 70.0       # 及格
+    EXCELLENT_THRESHOLD = 95.0          # 优秀
+    GREAT_THRESHOLD = 90.0              # 很好
+    GOOD_THRESHOLD = 80.0               # 良好
+    FAIR_THRESHOLD = 70.0               # 及格
     
     # ==================== 类型注解 - UI控件 ====================
     # 布局对象
-    layout_main: QVBoxLayout
-    hbox1: QHBoxLayout
-    hbox11: QHBoxLayout
-    hbox12: QHBoxLayout
-    hbox2: QHBoxLayout
-    hbox21: QHBoxLayout
-    hbox3: QHBoxLayout
-    hbox31: QHBoxLayout
-    hbox32: QHBoxLayout
-    hbox4: QHBoxLayout
-    hbox41: QHBoxLayout
-    hbox42: QHBoxLayout
-    hbox5: QHBoxLayout
-    hbox6: QHBoxLayout
-    hbox61: QHBoxLayout
-    hbox62: QHBoxLayout
-    hbox63: QHBoxLayout
+    layout_main: QVBoxLayout            # 主垂直布局
+    hbox1: QHBoxLayout                  # 第一行水平布局
+    hbox11: QHBoxLayout                 # 第一行左侧布局
+    hbox12: QHBoxLayout                 # 第一行右侧布局
+    hbox2: QHBoxLayout                  # 第二行水平布局
+    hbox21: QHBoxLayout                 # 第二行左侧布局
+    hbox3: QHBoxLayout                  # 第三行水平布局
+    hbox31: QHBoxLayout                 # 第三行左侧布局
+    hbox32: QHBoxLayout                 # 第三行右侧布局
+    hbox4: QHBoxLayout                  # 第四行水平布局
+    hbox41: QHBoxLayout                 # 第四行左侧布局
+    hbox42: QHBoxLayout                 # 第四行右侧布局
+    hbox5: QHBoxLayout                  # 第五行水平布局
+    hbox6: QHBoxLayout                  # 第六行水平布局
+    hbox61: QHBoxLayout                 # 第六行左侧布局
+    hbox62: QHBoxLayout                 # 第六行中间布局
+    hbox63: QHBoxLayout                 # 第六行右侧布局
     
     # 标签控件
-    label_lesson_num: StrongBodyLabel  # 当前课程编号
-    label_char_sound: StrongBodyLabel  # 当前字符显示
-    label_char_total_time: BodyLabel  # 字符音频总时长
+    label_lesson_num: StrongBodyLabel   # 当前课程编号
+    label_char_sound: StrongBodyLabel   # 当前字符显示
+    label_char_total_time: BodyLabel    # 字符音频总时长
     label_char_current_time: BodyLabel  # 字符音频当前时间
-    label_text_total_time: BodyLabel  # 文本音频总时长
+    label_text_total_time: BodyLabel    # 文本音频总时长
     label_text_current_time: BodyLabel  # 文本音频当前时间
     
     # 交互控件
-    combo_lessons: ComboBox  # 课程选择下拉框
-    progress_char: ProgressBar  # 字符音频进度条
-    progress_text: ProgressBar  # 文本音频进度条
-    text_input: TextEdit  # 练习文本输入框
+    combo_lessons: ComboBox             # 课程选择下拉框
+    progress_char: ProgressBar          # 字符音频进度条
+    progress_text: ProgressBar          # 文本音频进度条
+    text_input: TextEdit                # 练习文本输入框
     
     # 按钮控件
-    btn_char_play_pause: PushButton  # 字符音频播放/暂停按钮
-    btn_char_restart: PushButton  # 字符音频重播按钮
-    btn_text_play_pause: PushButton  # 文本音频播放/暂停按钮
-    btn_text_restart: PushButton  # 文本音频重播按钮
-    btn_check: PushButton  # 检查结果按钮
+    btn_char_play_pause: PushButton     # 字符音频播放/暂停按钮
+    btn_char_restart: PushButton        # 字符音频重播按钮
+    btn_text_play_pause: PushButton     # 文本音频播放/暂停按钮
+    btn_text_restart: PushButton        # 文本音频重播按钮
+    btn_check: PushButton               # 检查结果按钮
     
     # 开关控件
-    switch_transparency: SwitchButton  # 透明度开关
-    switch_theme: SwitchButton  # 主题开关
+    switch_transparency: SwitchButton   # 透明度开关
+    switch_theme: SwitchButton          # 主题开关
     
     # ==================== 类型注解 - 媒体播放器 ====================
-    char_player: QMediaPlayer  # 字符音频播放器
-    char_audio_output: QAudioOutput  # 字符音频输出
-    text_player: QMediaPlayer  # 文本音频播放器
-    text_audio_output: QAudioOutput  # 文本音频输出
-    countdown_timer: QTimer  # 倒计时定时器
+    char_player: QMediaPlayer           # 字符音频播放器
+    char_audio_output: QAudioOutput     # 字符音频输出
+    text_player: QMediaPlayer           # 文本音频播放器
+    text_audio_output: QAudioOutput     # 文本音频输出
+    countdown_timer: QTimer             # 倒计时定时器
     
     # ==================== 类型注解 - 数据与状态 ====================
-    settings: QSettings  # 设置存储对象
-    total_characters: str  # 所有字符序列
-    lesson_data: Dict[str, List[str]]  # 课程数据字典
+    settings: QSettings                 # 设置存储对象
+    total_characters: str               # 所有字符序列
+    lesson_data: Dict[str, List[str]]   # 课程数据字典
     current_lesson_name: Optional[str]  # 当前课程名称
-    current_text_index: int  # 当前练习文本索引
-    is_result_checked: bool  # 是否已检查结果
-    is_char_playing: bool  # 字符音频是否正在播放
-    is_char_restart: bool  # 字符音频重播状态
-    is_text_playing: bool  # 文本音频是否正在播放
-    is_text_restart: bool  # 文本音频重播状态
-    countdown_value: int  # 倒计时当前值
-    is_countdown_active: bool  # 倒计时是否激活
+    current_text_index: int             # 当前练习文本索引
+    is_result_checked: bool             # 是否已检查结果
+    is_char_playing: bool               # 字符音频是否正在播放
+    is_char_restart: bool               # 字符音频重播状态
+    is_text_playing: bool               # 文本音频是否正在播放
+    is_text_restart: bool               # 文本音频重播状态
+    countdown_value: int                # 倒计时当前值
+    is_countdown_active: bool           # 倒计时是否激活
     
     def __init__(self):
         """初始化Koch窗口"""
@@ -408,7 +408,7 @@ class KochWindow(QWidget):
         self.text_input = TextEdit()
         self.text_input.setPlaceholderText("Enter your practice text here...")
 
-        # 设置字体为等宽字体，提升莫尔斯码输入体验
+        # 设置字体为等宽字体，提升摩尔斯码输入体验
         mono_font = QFont("Consolas", 11)
         mono_font.setStyleHint(QFont.StyleHint.Monospace)
         self.text_input.setFont(mono_font)
@@ -1187,12 +1187,12 @@ class KochWindow(QWidget):
         child_height = statistics_window.height()
     
         x = parent_geometry.x() + (parent_geometry.width() - child_width) // 2
-        y = parent_geometry.y() + (parent_geometry.height() - child_height) // 2
+        y = parent_geometry.y() - (parent_geometry.height() - child_height) // 2
     
         statistics_window.move(x, y)
     
-        # 模态显示（阻塞主窗口）
-        statistics_window.exec()
+        # 模态显示
+        statistics_window.show()
     
     # ==================== 窗口事件处理 ====================
     

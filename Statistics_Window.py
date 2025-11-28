@@ -2,9 +2,9 @@
 Koch 统计窗口
 显示学习统计数据和图表
 
-Author: xiaokanghu1997
-Date: 2025-11-11
-Version: 1.1.0
+Author: Xiaokang HU
+Date: 2025-11-28
+Version: 1.2.0
 """
 
 from ctypes import windll, byref, sizeof, c_int
@@ -12,21 +12,18 @@ from datetime import datetime
 from typing import Optional
 
 from PySide6 import QtGui
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog, QSizePolicy
 
 from qfluentwidgets import (
-    BodyLabel, StrongBodyLabel, ComboBox, 
+    BodyLabel, StrongBodyLabel, ComboBox, SegmentedToolWidget,
     setTheme, Theme, FluentIcon
 )
 
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from matplotlib.container import BarContainer
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-
 from Config import config
+from Statistics import StatisticsManager
 
 
 class StatisticsWindow(QDialog):
@@ -42,51 +39,45 @@ class StatisticsWindow(QDialog):
     """
     
     # ==================== 常量定义 ====================
-    WINDOW_WIDTH = 822   # 窗口宽度
-    WINDOW_HEIGHT = 358  # 窗口高度
+    DARK_TITLE_BAR_COLOR = 0x00202020        # 深色模式标题栏颜色 RGB(32, 32, 32)
+    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3       # 浅色模式标题栏颜色 RGB(243, 243, 243)
 
-    # 画图配置
-    HIGHER_POSITION = [0.065, 0.15, 0.886, 0.72]  # 非小时模式坐标轴位置
-    LOWER_POSITION = [0.065, 0.198, 0.886, 0.67]  # 小时模式坐标轴位置
-    MODE_DEFAULT_Y_LABEL = "Practice Time"
-    MODE_DEFAULT_Y_LIMIT = 10
-    MODE_OTHER_Y_LABEL = "Practice Count"
-    MODE_OTHER_Y_LIMIT = 20
-
-    # 颜色配置
-    DARK_TITLE_BAR_COLOR = 0x00202020   # 深色模式标题栏颜色 RGB(32, 32, 32)
-    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3  # 浅色模式标题栏颜色 RGB(243, 243, 243)
+    WINDOW_WIDTH_CALENDAR = 840              # 日历热力图窗口宽度
+    WINDOW_HEIGHT_CALENDAR = 250             # 日历热力图窗口高度
+    WINDOW_WIDTH_TABLE = 840                 # 统计图表窗口宽度
+    WINDOW_HEIGHT_TABLE = 360                # 统计图表窗口高度
     
     # ==================== 类型注解 - UI控件 ====================
-    layout_main: QVBoxLayout            # 主布局
-    hbox1: QHBoxLayout                  # 第一行布局
-    hbox11: QHBoxLayout                 # 课程选择区
-    hbox111: QHBoxLayout                # 统计模式选择区
-    hbox12: QHBoxLayout                 # 统计信息显示区
-    hbox2: QHBoxLayout                  # 第二行布局(图表)
+    layout_main: QVBoxLayout                 # 主布局
+    hbox1: QHBoxLayout                       # 第一行布局
+    hbox11: QHBoxLayout                      # 日历与统计图表切换
+    hbox12: QHBoxLayout                      # 统计信息与统计模式选择区
+    hbox121: QHBoxLayout                     # 日历信息与课程选择区
+    hbox122: QHBoxLayout                     # 统计模式选择区
+    hbox13: QHBoxLayout                      # 统计信息显示区
+    hbox2: QHBoxLayout                       # 第二行布局(图表)
     
-    combo_lessons: ComboBox             # 课程选择下拉框
-    combo_mode: Optional[ComboBox]      # 统计模式下拉框(动态创建)
-    label_total_time: StrongBodyLabel   # 总练习时长标签
-    label_total_count: StrongBodyLabel  # 总练习次数标签
-    
-    figure: plt.Figure                  # matplotlib图形对象
-    fig_canvas: FigureCanvas            # 图形画布
-    legend_ax: plt.Axes                 # 图例坐标轴
-    ax1: plt.Axes                       # 主坐标轴(左Y轴-准确率)
-    ax2: plt.Axes                       # 副坐标轴(右Y轴-练习次数)
-    
-    line_plot: plt.Line2D               # 准确率折线图
-    bar_plot: BarContainer              # 练习次数柱状图
-    highlight_line: plt.Line2D          # 悬停高亮折线
-    highlight_bar: Rectangle            # 悬停高亮柱状图
-    annot: plt.Annotation               # 悬停提示框
+    segmented_tool: SegmentedToolWidget      # 日历与统计图表切换控件
+    combo_year: ComboBox                     # 年份选择下拉框
+    combo_lessons: ComboBox                  # 课程选择下拉框
+    combo_mode: Optional[ComboBox]           # 统计模式下拉框(动态创建)
+    label_year_total_count: StrongBodyLabel  # 年度总练习次数标签
+    label_year_total_time: StrongBodyLabel   # 年度总练习时长标签
+    label_year_avg_accuracy: StrongBodyLabel # 年度平均准确率标签
+    label_total_time: StrongBodyLabel        # 总练习时长标签
+    label_total_count: StrongBodyLabel       # 总练习次数标签
+    chart_view: QWebEngineView               # 图表显示控件
     
     # ==================== 类型注解 - 状态变量 ====================
-    stats_manager: any                  # 统计管理器实例
-    is_dark_theme: bool                 # 是否为深色主题
-    annot_config: dict                  # 提示框配置
-    
+    stats_manager: StatisticsManager         # 统计管理器实例
+    is_dark_theme: bool                      # 是否为深色主题
+    is_transparent: bool                     # 是否为透明窗口
+
+    # ==================== 类型注解 - 图表信息 ====================
+    current_html_theme: str                  # 当前HTML主题
+    current_table_info: str                  # 当前表格信息
+    current_calendar_info: str               # 当前日历信息
+
     def __init__(
         self, 
         statistics_manager,
@@ -103,23 +94,34 @@ class StatisticsWindow(QDialog):
             is_transparent: 是否应用透明效果
         """
         super().__init__(parent)
+
+        # 设置数据管理器
         self.stats_manager = statistics_manager
         
         # 设置窗口基础属性
         self.setWindowTitle("Statistics")
-        self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
-        
-        # 应用主题和透明度
+        self.setFixedSize(self.WINDOW_WIDTH_CALENDAR, self.WINDOW_HEIGHT_CALENDAR)
+
+        # 初始化状态变量
+        self.is_dark_theme = is_dark_theme
+        self.is_transparent = is_transparent
+
+        # 设置图表信息
+        self.current_html_theme = None
+        self.current_table_info = None
+        self.current_calendar_info = None
+
+        # 初始化数据结构
+        self._html_templates = {}
+        self._chart_initialized = False
+        self._titlebar_applied = False
+
+        # 加载HTML模板
+        self._load_html_templates()
+
+        # 应用主题与透明度设置
         self.toggle_theme(is_dark_theme)
         self.toggle_transparency(is_transparent)
-        
-        # 初始化悬停提示相关变量
-        self.annot = None
-        self.highlight_line = None
-        self.highlight_bar = None
-
-        # 画图初始化标志位
-        self._chart_initialized = False
         
         # 设置用户界面
         self.setup_ui()
@@ -140,7 +142,8 @@ class StatisticsWindow(QDialog):
         self._setup_row2()  # 图表区域
         
         self.layout_main.addLayout(self.hbox1)
-        self.layout_main.addLayout(self.hbox2)
+        self.layout_main.addLayout(self.hbox2, stretch=1)
+        self.layout_main.setAlignment(Qt.AlignmentFlag.AlignTop)
     
     def _setup_row1(self) -> None:
         """
@@ -151,88 +154,170 @@ class StatisticsWindow(QDialog):
         - 右侧: 总练习时长和总练习次数
         """
         self.hbox1 = QHBoxLayout()
-        
-        # ========== 左侧: 课程选择区 ==========
+
+        # 左侧: 日历与统计图表切换
         self.hbox11 = QHBoxLayout()
-        self.hbox11.addWidget(BodyLabel("Select lesson:"))
+        self.segmented_tool = SegmentedToolWidget()
+        self.segmented_tool.addItem("Calendar", FluentIcon.CALENDAR)
+        self.segmented_tool.addItem("Table", FluentIcon.MARKET)
+        self.segmented_tool.setFixedSize(60, 30)
+        self.segmented_tool.setCurrentItem("Calendar")
+        self.segmented_tool.currentItemChanged.connect(self.update_chart)
+        self.hbox11.addWidget(self.segmented_tool)
         
-        # 课程选择下拉框
-        self.combo_lessons = ComboBox()
-        self.combo_lessons.setFixedSize(160, 30)
-        self.combo_lessons.setMaxVisibleItems(5)
-        lesson_names = self.stats_manager.get_overall_stats().get("practiced_lesson_names")
-        self.combo_lessons.addItems(lesson_names)
-        self.combo_lessons.currentIndexChanged.connect(self.update_chart)
-        self.hbox11.addWidget(self.combo_lessons)
-        
-        # 统计模式选择区(动态创建)
-        self.hbox11.addSpacing(10)
-        self.hbox111 = QHBoxLayout()
-        self.hbox11.addLayout(self.hbox111)
-        self.hbox11.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        
-        # ========== 右侧: 统计信息显示 ==========
+        # 中间: 课程与统计模式选择区
         self.hbox12 = QHBoxLayout()
-        self.hbox12.addWidget(BodyLabel("Total practice time:"))
-        self.label_total_time = StrongBodyLabel()
-        self.hbox12.addWidget(self.label_total_time)
+        self.hbox121 = QHBoxLayout()
+        total_years = self.stats_manager.get_all_practice_years()
+        practice_data, practice_info = self.stats_manager.get_daily_practice_count_by_year(total_years[-1])
+        self.label_year_total_count = StrongBodyLabel()
+        self.label_year_total_count.setText(f"{practice_info.get('total_practice_count', 0)}")
+        self.hbox121.addWidget(self.label_year_total_count)
+        self.hbox121.addWidget(BodyLabel("practics,"))
+        self.label_year_total_time = StrongBodyLabel()
+        self.label_year_total_time.setText(
+            self.stats_manager.format_time(practice_info.get('total_practice_time', 0))
+        )
+        self.hbox121.addWidget(self.label_year_total_time)
+        self.hbox121.addWidget(BodyLabel("total time,"))
+        self.label_year_avg_accuracy = StrongBodyLabel()
+        self.label_year_avg_accuracy.setText(
+            f"{practice_info.get('average_accuracy', 0):.2f}%"
+        )
+        self.hbox121.addWidget(self.label_year_avg_accuracy)
+        self.hbox121.addWidget(BodyLabel("average accuracy in"))
+        self.combo_year = ComboBox()
+        self.combo_year.setFixedSize(80, 30)
+        self.combo_year.addItems([str(year) for year in total_years])
+        self.combo_year.setCurrentIndex(len(total_years) - 1)
+        self.combo_year.currentIndexChanged.connect(self.update_calendar)
+        self.hbox121.addWidget(self.combo_year)
+        self.hbox12.addLayout(self.hbox121)
         self.hbox12.addSpacing(10)
-        self.hbox12.addWidget(BodyLabel("Total practice count:"))
-        self.label_total_count = StrongBodyLabel()
-        self.hbox12.addWidget(self.label_total_count)
-        self.hbox12.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.hbox122 = QHBoxLayout()
+        self.hbox12.addLayout(self.hbox122)
+        self.hbox12.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
-        # 组合左右两侧
+        # 右侧: 统计信息显示
+        self.hbox13 = QHBoxLayout()
+        self.hbox13.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # 组合左中右布局
         self.hbox1.addLayout(self.hbox11)
+        self.hbox1.addSpacing(10)
         self.hbox1.addLayout(self.hbox12)
+        self.hbox1.addSpacing(10)
+        self.hbox1.addLayout(self.hbox13)
+        self.hbox1.setAlignment(Qt.AlignmentFlag.AlignLeft)
     
     def _setup_row2(self) -> None:
         """
         第二行: 统计图表区域
         
-        使用matplotlib绘制双Y轴图表:
-        - 左Y轴: 准确率折线图
-        - 右Y轴: 练习次数柱状图
+        使用echarts绘制图表:
         """
         self.hbox2 = QHBoxLayout()
         
-        # 创建matplotlib图形
-        self.figure = plt.figure(figsize=(8, 3), dpi=100)
+        self.chart_view = QWebEngineView()
+        self.chart_view.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding
+        )
         
-        # 自定义高质量画布(启用抗锯齿)
-        class HighQualityCanvas(FigureCanvas):
-            def paintEvent(self, event):
-                painter = QtGui.QPainter(self)
-                painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
-                painter.setRenderHint(QtGui.QPainter.RenderHint.TextAntialiasing, True)
-                painter.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform, True)
-                painter.end()
-                super().paintEvent(event)
-        
-        self.fig_canvas = HighQualityCanvas(self.figure)
-        
-        # 连接鼠标悬停事件
-        self.fig_canvas.mpl_connect("motion_notify_event", self.on_hover)
-        
-        self.hbox2.addWidget(self.fig_canvas)
+        bg_color = QtGui.QColor(32, 32, 32) if self.is_dark_theme else QtGui.QColor(243, 243, 243)
+        self.chart_view.page().setBackgroundColor(bg_color)
 
-    # ==================== 延迟渲染图表 ====================
+        start_page = f'<html><body style="background-color: {bg_color.name()}; margin: 0; padding: 0; width: 100%; height: 100%;"></body></html>'
+        self.chart_view.setHtml(start_page)
 
-    def showEvent(self, event) -> None:
-        """
-        窗口显示事件处理 - 延迟渲染图表
-        
-        第一次显示窗口时渲染图表，避免初始化时的性能开销
-        """
-        super().showEvent(event)
-
-        if not self._chart_initialized:
-            self.update_chart()
-            self._chart_initialized = True
+        self.hbox2.addWidget(self.chart_view)  
     
-    # ==================== 图表更新方法 ====================
+    def _setup_calendar_ui(self) -> None:
+        """
+        设置日历热力图的UI控件
+        """
+        self.setFixedSize(self.WINDOW_WIDTH_CALENDAR, self.WINDOW_HEIGHT_CALENDAR)
+        self.clear_all_widgets()
+
+        total_years = self.stats_manager.get_all_practice_years()
+        practice_data, practice_info = self.stats_manager.get_daily_practice_count_by_year(total_years[-1])
+        
+        self.label_year_total_count = StrongBodyLabel(f"{practice_info.get('total_practice_count', 0)}")
+        self.hbox121.addWidget(self.label_year_total_count)
+        self.hbox121.addWidget(BodyLabel("practics,"))
+        
+        self.label_year_total_time = StrongBodyLabel(
+            self.stats_manager.format_time(practice_info.get('total_practice_time', 0))
+        )
+        self.hbox121.addWidget(self.label_year_total_time)
+        self.hbox121.addWidget(BodyLabel("total time,"))
+        
+        self.label_year_avg_accuracy = StrongBodyLabel(
+            f"{practice_info.get('average_accuracy', 0):.2f}%"
+        )
+        self.hbox121.addWidget(self.label_year_avg_accuracy)
+        self.hbox121.addWidget(BodyLabel("average accuracy in"))
+
+        self.combo_year = ComboBox()
+        self.combo_year.setFixedSize(80, 30)
+        self.combo_year.addItems([str(year) for year in total_years])
+        self.combo_year.setCurrentIndex(len(total_years) - 1)
+        self.combo_year.currentIndexChanged.connect(self.update_calendar)
+        self.hbox121.addWidget(self.combo_year)
     
+    def _setup_table_ui(self) -> None:
+        """
+        设置统计图表的UI控件
+        """
+        self.setFixedSize(self.WINDOW_WIDTH_TABLE, self.WINDOW_HEIGHT_TABLE)
+        self.clear_all_widgets()
+
+        self.hbox121.addWidget(BodyLabel("Select lesson:"))
+        self.combo_lessons = ComboBox()
+        self.combo_lessons.setFixedSize(100, 30)
+        self.combo_lessons.setMaxVisibleItems(5)
+        lesson_names = self.stats_manager.get_overall_stats().get("practiced_lesson_names")
+        self.combo_lessons.addItems(lesson_names)
+        self.combo_lessons.currentIndexChanged.connect(self.update_table)
+        self.hbox121.addWidget(self.combo_lessons)
+
+        self.hbox13.addWidget(BodyLabel("Total practice time:"))
+        total_time = self.stats_manager.get_overall_stats().get("total_practice_time")
+        self.label_total_time = StrongBodyLabel(self.stats_manager.format_time(total_time))
+        self.hbox13.addWidget(self.label_total_time)
+        self.hbox13.addSpacing(10)
+
+        self.hbox13.addWidget(BodyLabel("Total practice count:"))
+        total_count = self.stats_manager.get_overall_stats().get("total_practice_count")
+        self.label_total_count = StrongBodyLabel(f"{total_count}")
+        self.hbox13.addWidget(self.label_total_count)
+    
+    # ==================== 图表更新控制 ====================
+
     def update_chart(self) -> None:
+        """
+        根据segmented_tool情况绘制图表
+
+        两种情况：
+        1. 日历热力图: 显示当年每日的练习数量
+        2. 统计图表: 显示课程的练习情况
+        """
+        if self.segmented_tool.currentRouteKey() == "Calendar":
+            self._setup_calendar_ui()
+            self._plot_calendar_statistics()
+        else:
+            self._setup_table_ui()
+            self._plot_global_statistics()
+    
+    def update_calendar(self) -> None:
+        """
+        根据选择更新日历热力图
+        
+        显示所选年份的每日练习数量
+        """
+        self._plot_calendar_statistics()
+    
+    def update_table(self) -> None:
         """
         根据选择更新统计图表
         
@@ -241,33 +326,32 @@ class StatisticsWindow(QDialog):
         2. 单课程统计: 显示该课程的练习历史
         """
         if self.combo_lessons.currentIndex() == 0:
-            # ========== 全局统计模式 ==========
+            # 全局统计模式
             total_time = self.stats_manager.get_overall_stats().get("total_practice_time")
             total_count = self.stats_manager.get_overall_stats().get("total_practice_count")
             
             # 隐藏统计模式选择
-            self.clear_layout(self.hbox111)
+            self.clear_layout(self.hbox122)
             self.combo_mode = None
         else:
-            # ========== 单课程统计模式 ==========
+            # 单课程统计模式
             lesson_id = self.combo_lessons.currentIndex()
             lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
             total_time = lesson_data.get("practice_time")
             total_count = lesson_data.get("practice_count")
             
             # 显示统计模式选择
-            self.clear_layout(self.hbox111)
+            self.clear_layout(self.hbox122)
             self.combo_mode = None
-            self.hbox111.addWidget(BodyLabel("Statistic by:"))
+            self.hbox122.addWidget(BodyLabel("Statistic by:"))
             
             # 创建统计模式下拉框
-            if not hasattr(self, 'combo_mode') or self.combo_mode is None:
-                self.combo_mode = ComboBox()
-                self.combo_mode.setFixedSize(90, 30)
-                self.combo_mode.setMaxVisibleItems(5)
-                self.combo_mode.addItems(["Default", "Hour", "Day", "Month", "Year"])
-                self.combo_mode.currentIndexChanged.connect(self.mode_changed)
-            self.hbox111.addWidget(self.combo_mode)
+            self.combo_mode = ComboBox()
+            self.combo_mode.setFixedSize(90, 30)
+            self.combo_mode.setMaxVisibleItems(5)
+            self.combo_mode.addItems(["Default", "Hour", "Day", "Month", "Year"])
+            self.combo_mode.currentIndexChanged.connect(self.mode_changed)
+            self.hbox122.addWidget(self.combo_mode)
         
         # 绘制图表
         self.plot(self.combo_lessons.currentIndex())
@@ -275,9 +359,6 @@ class StatisticsWindow(QDialog):
         # 更新统计信息
         self.label_total_time.setText(self.stats_manager.format_time(total_time))
         self.label_total_count.setText(f"{total_count}")
-        
-        # 刷新画布
-        self.fig_canvas.draw()
     
     def mode_changed(self) -> None:
         """
@@ -286,7 +367,6 @@ class StatisticsWindow(QDialog):
         当用户切换时间聚合模式(小时/天/月/年)时触发
         """
         self.plot(self.combo_lessons.currentIndex())
-        self.fig_canvas.draw()
     
     # ==================== 图表绘制方法 ====================
     
@@ -299,34 +379,39 @@ class StatisticsWindow(QDialog):
                 - 0: 绘制全局统计(所有课程对比)
                 - 其他: 绘制单课程历史统计
         """
-        # 清除现有图表
-        self.figure.clf()
-        
-        # 重置交互元素
-        self.annot = None
-        self.highlight_line = None
-        self.highlight_bar = None
-        
-        # 创建图例区域
-        self.legend_ax = self.figure.add_axes([0.056, 0.94, 1, 0.06])
-        self.legend_ax.axis('off')
-        self.legend_ax.set_navigate(False)  # 禁用图例轴的交互功能
-        
-        # 创建主坐标轴
-        self.figure.set_tight_layout(False)
-        self.ax1 = self.figure.add_subplot(111)
-        self.ax2 = self.ax1.twinx()
-        
         if index == 0:
-            # ========== 绘制全局统计 ==========
+            # 绘制全局统计
             self._plot_global_statistics()
         else:
-            # ========== 绘制单课程统计 ==========
+            # 绘制单课程统计
             self._plot_lesson_statistics(index)
-        
-        # 应用通用样式
-        self._apply_plot_style()
     
+    def _plot_calendar_statistics(self) -> None:
+        """
+        绘制日历热力图统计图表
+        
+        显示当年每日的练习数量
+        """
+        # 获取数据
+        year = int(self.combo_year.currentText())
+        practice_data, practice_info = self.stats_manager.get_daily_practice_count_by_year(year)
+
+        self.label_year_total_count.setText(f"{practice_info.get('total_practice_count', 0)}")
+        self.label_year_total_time.setText(
+            self.stats_manager.format_time(practice_info.get('total_practice_time', 0))
+        )
+        self.label_year_avg_accuracy.setText(
+            f"{practice_info.get('average_accuracy', 0):.2f}%"
+        )
+
+        html_content = self._generate_html('calendar', {
+            "const dataYear = 2025;": f"const dataYear = {year};",
+            "const calendarData = [];": f"const calendarData = {repr(practice_data)};"
+        })
+
+        base_url = QUrl.fromLocalFile(str(config.echarts_dir) + "/")
+        self.chart_view.setHtml(html_content, base_url)
+
     def _plot_global_statistics(self) -> None:
         """
         绘制全局统计图表(所有课程对比)
@@ -335,12 +420,8 @@ class StatisticsWindow(QDialog):
         左Y轴: 平均准确率
         右Y轴: 练习次数
         """
-        # 设置坐标轴位置
-        self.ax1.set_position(self.HIGHER_POSITION)
-        self.ax2.set_position(self.HIGHER_POSITION)
-        
         # 获取数据
-        avg_accuracy = self.stats_manager.get_overall_stats().get("average_accuracy")
+        avg_accuracy = "{:.2f}".format(self.stats_manager.get_overall_stats().get("average_accuracy"))
         lessons_index = self.stats_manager.get_overall_stats().get("practiced_lesson_numbers")
         lessons_index = [int(num) for num in lessons_index[1:]]  # 跳过"所有已学课程"
         
@@ -349,19 +430,37 @@ class StatisticsWindow(QDialog):
         
         for num in lessons_index:
             lesson_data = self.stats_manager.get_lesson_stats(num)
-            accuracies.append(float(lesson_data.get("average_accuracy", 0)))
+            accuracies.append("{:.2f}".format(lesson_data.get("average_accuracy", 0)))
             counts.append(int(lesson_data.get("practice_count", 0)))
         
-        # X轴设置
-        x = lessons_index
-        self.ax1.set_xlabel("Lesson ID", labelpad=6)
-        self.ax1.set_xlim(0.5, 40.5)
-        self.ax1.set_xticks(range(1, 41))
-        self.ax1.set_xticklabels([str(i).zfill(2) for i in range(1, 41)])
+        xtickvalues = [str(i).zfill(2) for i in range(1, 41)]
+        total_characters = "KMURESNAPTLWI.JZ=FOY,VG5/Q92H38B?47C1D60X"
+        lesson_id = [f"01 - {', '.join(total_characters[:2])}"]
+        for i in range(2, len(total_characters)):
+            lesson_id.append(f"{i:02d} - {total_characters[i]}")
         
-        # 存储数据用于绘制
-        self._draw_plot_elements(x, accuracies, counts, avg_accuracy)
-    
+        data_replacement = {
+            "const xlabel = '';": "const xlabel = 'Lesson ID';",
+            "const xtickvalues = [];": f"const xtickvalues = {repr(xtickvalues)};",
+            "const lesson_id = [];": f"const lesson_id = {repr(lesson_id)};",
+            "const y0label = '';": "const y0label = 'Practice Accuracy';",
+            "const y0labelunit = '';": "const y0labelunit = '(%)';",
+            "const y0min = 0;": "const y0min = 0;",
+            "const y0max = 0;": "const y0max = 100;",
+            "const y0values = [];": f"const y0values = {repr(accuracies)};",
+            "const y1label = '';": "const y1label = 'Practice Count';",
+            "const y1labelunit = '';": "const y1labelunit = '';",
+            "const y1min = 0;": "const y1min = 0;",
+            "const y1max = 0;": "const y1max = 20;",
+            "const y1values = [];": f"const y1values = {repr(counts)};",
+            "const accuracy_avg = 0;": f"const accuracy_avg = {repr(avg_accuracy)};",
+            "const threshold = 90;": "const threshold = 90;"
+        }
+
+        html_content = self._generate_html('table', data_replacement)
+        base_url = QUrl.fromLocalFile(str(config.echarts_dir) + "/")
+        self.chart_view.setHtml(html_content, base_url)
+
     def _plot_lesson_statistics(self, lesson_id: int) -> None:
         """
         绘制单课程统计图表(练习历史)
@@ -369,476 +468,107 @@ class StatisticsWindow(QDialog):
         Args:
             lesson_id: 课程编号
         """
+        # 获取数据
         lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
-        if not lesson_data:
-            self.ax1.clear()
-            self.ax2.clear()
-            return
-        
-        avg_accuracy = lesson_data.get("average_accuracy")
+        avg_accuracy = "{:.2f}".format(lesson_data.get("average_accuracy"))
         
         # 获取聚合模式
         mode = self.combo_mode.currentText() if self.combo_mode else "Default"
         
         if mode == "Default":
-            # ========== 原始数据(逐次练习) ==========
+            # 原始数据（逐次练习）
             history = lesson_data.get("accuracy_history", [])
             timestamps = [
                 datetime.fromisoformat(record["timestamp"])
                 for record in history
             ]
             formatted = [dt.strftime("%m-%d\n%H:%M") for dt in timestamps]
-            accuracies = [record["accuracy"] for record in history]
-            counts = [record["practice_time"] / 60 for record in history]
-            
-            # 设置坐标轴位置
-            self.ax1.set_position(self.LOWER_POSITION)
-            self.ax2.set_position(self.LOWER_POSITION)
+            accuracies = ["{:.2f}".format(record["accuracy"]) for record in history]
+            counts = ["{:.2f}".format(record["practice_time"] / 60) for record in history]
+            y1label = 'Practice Time'
+            y1labelunit = '(min)'
+            y1max = 10
         else:
-            # ========== 按时间聚合 ==========
+            # 按时间聚合
             formatted, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
                 lesson_id, mode
             )
-            if not formatted:  # 如果没有数据
-                self.ax1.clear()
-                self.ax2.clear()
-                return
-            
-            # 根据模式调整坐标轴位置
-            if mode != "Hour":
-                self.ax1.set_position(self.HIGHER_POSITION)
-                self.ax2.set_position(self.HIGHER_POSITION)
-            else:
-                self.ax1.set_position(self.LOWER_POSITION)
-                self.ax2.set_position(self.LOWER_POSITION)
+            accuracies = ["{:.2f}".format(accuracy) for accuracy in accuracies]
+            y1label = 'Practice Count'
+            y1labelunit = ''
+            y1max = 20
         
-        # X轴设置
-        x = list(range(1, len(formatted) + 1))
-        self.ax1.set_xlabel("Time", labelpad=6)
-        self.ax1.set_xlim(0.5, len(formatted) + 0.5)
-        self.ax1.set_xticks(x)
-        self.ax1.set_xticklabels(formatted)
-        
-        # 绘制图表元素
-        self._draw_plot_elements(x, accuracies, counts, avg_accuracy)
-    
-    def _draw_plot_elements(
-        self, 
-        x: list, 
-        accuracies: list, 
-        counts: list, 
-        avg_accuracy: float
-    ) -> None:
-        """
-        绘制图表的核心元素(折线图、柱状图、阈值线等)
-        
-        Args:
-            x: X轴数据
-            accuracies: 准确率数据
-            counts: 练习次数数据
-            avg_accuracy: 平均准确率
-        """
-        # 根据模式调整右Y轴标签和范围
-        if self.combo_mode and self.combo_mode.currentText() == "Default":
-            self.ax2.set_ylabel(self.MODE_DEFAULT_Y_LABEL, labelpad=6)
-            self.ax2.set_ylim(0, self.MODE_DEFAULT_Y_LIMIT)
-            y_range = range(0, self.MODE_DEFAULT_Y_LIMIT + 1, 1)
-            self.ax2.set_yticks(y_range)
-            self.ax2.set_yticklabels([f"{i}" for i in y_range])
-        else:
-            self.ax2.set_ylabel(self.MODE_OTHER_Y_LABEL, labelpad=6)
-            self.ax2.set_ylim(0, self.MODE_OTHER_Y_LIMIT)
-            y_range = range(0, self.MODE_OTHER_Y_LIMIT + 1, 2)
-            self.ax2.set_yticks(y_range)
-            self.ax2.set_yticklabels([f"{i}" for i in y_range])
+        data_replacement = {
+            "const xlabel = '';": "const xlabel = 'Time';",
+            "const xtickvalues = [];": f"const xtickvalues = {repr(formatted)};",
+            "const lessonID = [];": f"const lessonID = [];",
+            "const y0label = '';": "const y0label = 'Practice Accuracy';",
+            "const y0labelunit = '';": "const y0labelunit = '(%)';",
+            "const y0min = 0;": "const y0min = 0;",
+            "const y0max = 0;": "const y0max = 100;",
+            "const y0values = [];": f"const y0values = {repr(accuracies)};",
+            "const y1label = '';": f"const y1label = {repr(y1label)};",
+            "const y1labelunit = '';": f"const y1labelunit = {repr(y1labelunit)};",
+            "const y1min = 0;": "const y1min = 0;",
+            "const y1max = 0;": f"const y1max = {y1max};",
+            "const y1values = [];": f"const y1values = {repr(counts)};",
+            "const accuracy_avg = 0;": f"const accuracy_avg = {repr(avg_accuracy)};",
+            "const threshold = 90;": "const threshold = 90;"
+        }
 
-        # 根据主题选择颜色
-        if self.is_dark_theme:
-            line_color = "#C8B5FC"       # 浅紫色(折线)
-            bar_color = "#4A9B8E"        # 深青色(柱状图)
-            threshold_color = "#F86D6B"  # 红色(阈值线)
-            edge_color = "#CCABF4"       # 深色边框
-            h_line_color = "#721ED9"     # 深紫色(高亮折线)
-            h_bar_color = "#92E0D3"      # 浅青色(高亮柱)
-            grid_color = "#444444"       # 深色网格线
-            grid_alpha = 0.5
-        else:
-            line_color = "#721ED9"       # 深紫色(折线)
-            bar_color = "#92E0D3"        # 浅青色(柱状图)
-            threshold_color = "#F86D6B"  # 红色(阈值线)
-            edge_color = "#9465CE"       # 浅色边框
-            h_line_color = "#C8B5FC"     # 浅紫色(高亮折线)
-            h_bar_color = "#4A9B8E"      # 深青色(高亮柱)
-            grid_color = "#CCCCCC"       # 浅色网格线
-            grid_alpha = 0.3
+        html_content = self._generate_html('table', data_replacement)
+        base_url = QUrl.fromLocalFile(str(config.echarts_dir) + "/")
+        self.chart_view.setHtml(html_content, base_url)
         
-        # ========== 左轴(准确率) ==========
-        self.ax1.tick_params(axis="both", direction="in", width=1, zorder=3, pad=5)
-        self.ax1.tick_params(axis="x", which="both", bottom=False)
-        line = self.ax1.plot(
-            x, accuracies, 
-            color=line_color, 
-            marker="o", 
-            markersize=4, 
-            linewidth=1, 
-            zorder=3, 
-            clip_on=False
-        )
-        self.ax1.set_ylabel("Accuracy (%)", labelpad=6)
-        self.ax1.set_ylim(0, 100)
-        self.ax1.set_yticks(range(0, 101, 10))
-        self.ax1.set_yticklabels([f"{i}" for i in range(0, 101, 10)])
-        
-        self.ax1.spines["left"].set_linewidth(1)
-        self.ax1.spines["left"].set_zorder(3)
-        self.ax1.spines["right"].set_linewidth(1)
-        self.ax1.spines["bottom"].set_linewidth(1)
-        self.ax1.spines["top"].set_visible(False)
-        
-        # ========== 右轴(练习次数) ==========
-        self.ax2.tick_params(axis="both", direction="in", width=1, zorder=5)
-        self.ax2.yaxis.set_label_position("right")
-        bar = self.ax2.bar(x, counts, color=bar_color, zorder=0.5)
-        
-        # 阈值线(90%准确率)
-        hline1 = self.ax2.hlines(
-            y=90, xmin=0, xmax=1, 
-            color=threshold_color, 
-            linestyles="--", 
-            linewidth=1, 
-            zorder=1, 
-            transform=self.ax1.get_yaxis_transform(), 
-            clip_on=False
-        )
-        
-        # 平均准确率线
-        hline2 = self.ax2.hlines(
-            y=float(avg_accuracy), xmin=0, xmax=1, 
-            color=line_color, 
-            linestyles="--", 
-            linewidth=1, 
-            zorder=1, 
-            transform=self.ax1.get_yaxis_transform(), 
-            clip_on=False
-        )
-        
-        # 网格线
-        self.ax2.hlines(
-            y=y_range, xmin=0, xmax=1,
-            color=grid_color,
-            alpha=grid_alpha,
-            linestyle="--",
-            linewidth=1,
-            zorder=0,
-            transform=self.ax2.get_yaxis_transform(),
-            clip_on=False
-        )
-        
-        self.ax2.spines["right"].set_linewidth(1)
-        self.ax2.spines["right"].set_zorder(5)
-        self.ax2.spines["top"].set_visible(False)
-        
-        # 存储绘图对象
-        self.line_plot = line[0]
-        self.bar_plot = bar
-        
-        # ========== 创建高亮元素 ==========
-        self.highlight_line = self.ax1.plot(
-            [], [], 
-            color=h_line_color, 
-            marker='o', 
-            markersize=6,
-            markeredgecolor=edge_color,
-            markeredgewidth=1.5, 
-            linewidth=1, 
-            zorder=4, 
-            clip_on=False
-        )[0]
-        
-        self.highlight_bar = Rectangle((0, 0), width=0, height=0, color=h_bar_color, zorder=0.5)
-        self.ax2.add_patch(self.highlight_bar)
-        self.highlight_bar.set_visible(False)
-        
-        # ========== 创建悬停提示框 ==========
-        if hasattr(self, 'annot_config'):
-            self.annot = self.ax1.annotate(
-                "",
-                xy=(0, 0),
-                xytext=(0, 0),
-                textcoords="offset points",
-                ha="left",
-                va="center",
-                bbox=dict(
-                    boxstyle="round,pad=0.5",
-                    facecolor=self.annot_config['bg_color'],
-                    edgecolor=self.annot_config['edge_color'],
-                    linewidth=self.annot_config['edge_width'],
-                    alpha=self.annot_config['bg_alpha']
-                ),
-                arrowprops=None,
-                zorder=10,
-                fontfamily=self.annot_config['font_family'],
-                fontsize=self.annot_config['font_size'],
-                color=self.annot_config['font_color']
-            )
-        else:
-            # 回退到默认配置
-            self.annot = self.ax1.annotate(
-                "",
-                xy=(0, 0),
-                xytext=(0, 0),
-                textcoords="offset points",
-                ha="left",
-                va="center",
-                bbox=dict(boxstyle="round", alpha=0.8),
-                arrowprops=None,
-                zorder=10
-            )
-        self.annot.set_visible(False)
-        
-        # ========== 创建图例 ==========
-        handles = [line[0], hline2, hline1, bar]
-        labels = [
-            "Accuracy", 
-            f"Average Accuracy: {avg_accuracy:.2f}%", 
-            "Accuracy Threshold: 90%", 
-            "Practice Count"
-        ]
-        self.legend_ax.clear()
-        self.legend_ax.axis('off')
-        self.legend_ax.legend(handles, labels, ncol=4, framealpha=1, loc="upper left")
-        
-        # 设置图层顺序
-        self.ax1.set_zorder(4)
-        self.ax2.set_zorder(3)
-        self.ax1.patch.set_visible(False)
-        
-        # ========== 添加底部刻度线 ==========
-        ax3 = self.figure.add_axes(self.ax1.get_position(), frameon=False)
-        ax3.tick_params(axis="y", which="both", left=False, labelleft=False)
-        ax3.tick_params(axis="x", which="both", bottom=True, labelbottom=False, direction="in", width=1)
-        ax3.set_xlim(self.ax1.get_xlim())
-        ax3.set_xticks(self.ax1.get_xticks())
-    
-    def _apply_plot_style(self) -> None:
-        """
-        应用绘图样式(预留方法，用于未来扩展)
-        """
-        pass
-    
-    # ==================== 交互事件处理 ====================
-    
-    def on_hover(self, event) -> None:
-        """
-        鼠标悬停事件处理
-        
-        当鼠标悬停在折线图点或柱状图柱上时，显示详细信息
-        
-        Args:
-            event: matplotlib鼠标事件对象
-        """
-        if not hasattr(self, 'annot') or self.annot is None:
-            return
-        
-        vis = self.annot.get_visible()
-        
-        # 检查鼠标是否在坐标轴内
-        if event.inaxes == self.ax1 or event.inaxes == self.ax2:
-            # 检查折线图的点
-            if hasattr(self, 'line_plot'):
-                cont, ind = self.line_plot.contains(event)
-                if cont:
-                    self._update_line_annot(ind, event)
-                    return
-            
-            # 检查柱状图的柱
-            if hasattr(self, 'bar_plot'):
-                for i, bar in enumerate(self.bar_plot):
-                    cont, _ = bar.contains(event)
-                    if cont:
-                        self._update_bar_annot(i, event)
-                        return
-            
-            # 鼠标不在任何对象上，隐藏提示
-            if vis:
-                self.annot.set_visible(False)
-                if self.highlight_line:
-                    self.highlight_line.set_visible(False)
-                if self.highlight_bar:
-                    self.highlight_bar.set_visible(False)
-                self.fig_canvas.draw_idle()
-        elif vis:
-            # 鼠标离开坐标轴，隐藏提示
-            self.annot.set_visible(False)
-            if self.highlight_line:
-                self.highlight_line.set_visible(False)
-            if self.highlight_bar:
-                self.highlight_bar.set_visible(False)
-            self.fig_canvas.draw_idle()
-    
-    def _update_line_annot(self, ind: dict, event, offset: int = 10) -> None:
-        """
-        更新折线图点的提示框
-        
-        Args:
-            ind: 包含索引信息的字典
-            event: 鼠标事件对象
-            offset: 提示框偏移量(像素)
-        """
-        i = ind["ind"][0]
-        text = ""
-        # 获取数据
-        if self.combo_lessons.currentIndex() == 0:
-            # 全局统计模式
-            lesson_id = int(self.ax1.get_xticks()[i])
-            lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
-            lesson_name = lesson_data.get("lesson_name")
-            accuracy = lesson_data.get("average_accuracy", 0)
-            text = f"Lesson {lesson_name}\nAccuracy: {accuracy:.2f}%"
-        else:
-            # 单课程统计模式
-            lesson_id = self.combo_lessons.currentIndex()
-            lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
+    # ==================== 加载HTML ====================
 
-            mode = self.combo_mode.currentText() if self.combo_mode else "Default"
-            if mode == "Default":
-                # 默认模式：显示具体练习时间和准确率
-                history = lesson_data.get("accuracy_history", [])
-                if i < len(history):
-                    record = history[i]
-                    accuracy = record["accuracy"]
-                    practice_time = record["practice_time"]
-                    practice_times = self.stats_manager.format_time(practice_time)
-                    text = f"Practice Time: {practice_times}\nAccuracy: {accuracy:.2f}%"
-            else:
-                time_labels, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
-                    lesson_id, mode
-                )
-                if i < len(time_labels):
-                    accuracy = accuracies[i]
-                    practice_time = practice_times[i]
-                    practice_times = self.stats_manager.format_time(practice_time)
-                    text = f"Practice Time: {practice_times}\nAccuracy: {accuracy:.2f}%"
-                
-        # 获取坐标
-        xdata = self.line_plot.get_xdata()
-        ydata = self.line_plot.get_ydata()
-        self.annot.xy = (xdata[i], ydata[i])
-        self.annot.set_text(text)
-        
-        # 根据鼠标位置调整提示框位置
-        if event.x > self.figure.bbox.width / 2:
-            dx = -offset
-            ha = 'right'
-        else:
-            dx = offset
-            ha = 'left'
-        if event.y > self.figure.bbox.height / 2:
-            dy = -offset
-            va = 'top'
-        else:
-            dy = offset
-            va = 'bottom'
-        
-        self.annot.set_position((dx, dy))
-        self.annot.set_ha(ha)
-        self.annot.set_va(va)
-        self.annot.set_visible(True)
-        
-        # 高亮点
-        self.highlight_line.set_data([xdata[i]], [ydata[i]])
-        self.highlight_line.set_visible(True)
-        
-        # 隐藏柱状图高亮
-        if self.highlight_bar:
-            self.highlight_bar.set_visible(False)
-        
-        self.fig_canvas.draw_idle()
-    
-    def _update_bar_annot(self, i: int, event, offset: int = 10) -> None:
+    def _load_html_templates(self) -> None:
         """
-        更新柱状图柱的提示框
-        
-        Args:
-            i: 柱的索引
-            event: 鼠标事件对象
-            offset: 提示框偏移量(像素)
+        预加载HTML模板文件到内存
         """
-        bar = self.bar_plot[i]
-        text = ""
-        # 获取数据
-        if self.combo_lessons.currentIndex() == 0:
-            # 全局统计模式
-            lesson_id = int(self.ax1.get_xticks()[i])
-            lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
-            lesson_name = lesson_data.get("lesson_name")
-            count = lesson_data.get("practice_count")
-            text = f"Lesson {lesson_name}\nPractice Count: {count}"
-        else:
-            # 单课程统计模式
-            lesson_id = self.combo_lessons.currentIndex()
-            lesson_data = self.stats_manager.get_lesson_stats(lesson_id)
+        try:
+            calendar_path = config.get_echarts_html('calendar')
+            table_path = config.get_echarts_html('table')
 
-            mode = self.combo_mode.currentText() if self.combo_mode else "Default"
-            if mode == "Default":
-                # 默认模式：显示具体练习时间和次数
-                history = lesson_data.get("accuracy_history", [])
-                if i < len(history):
-                    record = history[i]
-                    practice_time = record["practice_time"]
-                    practice_time = self.stats_manager.format_time(practice_time)
-                    text = f"Practice Time: {practice_time}\nPractice Count: 1"
-            else:
-                time_labels, accuracies, counts, practice_times = self.stats_manager.aggregate_by_time_period(
-                    lesson_id, mode
-                )
-                if i < len(time_labels):
-                    count = counts[i]
-                    practice_time = practice_times[i]
-                    practice_time = self.stats_manager.format_time(practice_time)
-                    text = f"Practice Time: {practice_time}\nPractice Count: {count}"
-        
-        # 提取柱子的边界
-        x_left = bar.get_x()  # 柱子的左边界
-        x_right = x_left + bar.get_width()  # 柱子的右边界
-        y_mouse = event.ydata  # 鼠标的 y 坐标
-
-        # 根据提示框宽度计算中心点偏移的位置
-        ax_bbox = self.ax1.get_window_extent(self.fig_canvas.renderer)
-        mid_x = (ax_bbox.x0 + ax_bbox.x1) / 2
-
-        # 根据鼠标的位置判断提示框的位置和对齐方式
-        if event.x < mid_x:  # 鼠标在图中央左侧
-            x_annot = x_right
-            xytext = (offset, 0)
-            ha = "left"
-        else:  # 鼠标在图中央右侧
-            x_annot = x_left
-            xytext = (-offset, 0)
-            ha = "right"
-
-        # 更新提示框属性
-        self.annot.xy = (x_annot, y_mouse)
-        self.annot.set_text(text)
-        self.annot.set_ha(ha)
-        self.annot.set_va("center")
-        self.annot.set_position(xytext)
-        self.annot.set_visible(True)
-        
-        # 高亮柱
-        self.highlight_bar.set_x(bar.get_x())
-        self.highlight_bar.set_y(0)
-        self.highlight_bar.set_width(bar.get_width())
-        self.highlight_bar.set_height(bar.get_height())
-        self.highlight_bar.set_visible(True)
-        
-        # 隐藏折线图高亮
-        if self.highlight_line:
-            self.highlight_line.set_visible(False)
-        
-        self.fig_canvas.draw_idle()
+            with open(calendar_path, 'r', encoding='utf-8') as file:
+                self._html_templates['calendar'] = file.read()
+            with open(table_path, 'r', encoding='utf-8') as file:
+                self._html_templates['table'] = file.read()
+        except FileNotFoundError:
+            self._html_templates = {'calendar': '', 'table': ''}
     
+    def _generate_html(self, template_type: str, data_dict: dict) -> str:
+        """
+        从模板生成HTML内容，不写入文件
+        """
+        html = self._html_templates.get(template_type, "")
+        theme_str = "const isDark = true;" if self.is_dark_theme else "const isDark = false;"
+        html = html.replace("const isDark = false;", theme_str)
+
+        bg_color = "#202020" if self.is_dark_theme else "#F3F3F3"
+        html = html.replace("background-color: #F3F3F3", f"background-color: {bg_color}")
+
+        for key, value in data_dict.items():
+            html = html.replace(key, value)
+        return html
+
     # ==================== 辅助方法 ====================
+
+    def clear_all_widgets(self) -> None:
+        """
+        清除所有动态创建的控件
+        """
+        self.clear_layout(self.hbox121)
+        self.clear_layout(self.hbox122)
+        self.clear_layout(self.hbox13)
+        self.combo_year = None
+        self.combo_lessons = None
+        self.combo_mode = None
+        self.label_total_time = None
+        self.label_total_count = None
+        self.label_year_total_count = None
+        self.label_year_total_time = None
+        self.label_year_avg_accuracy = None
     
     @staticmethod
     def clear_layout(layout: QHBoxLayout) -> None:
@@ -887,36 +617,28 @@ class StatisticsWindow(QDialog):
             # 发生错误时使用默认图标
             self.setWindowIcon(FluentIcon.MUSIC.icon())
     
-    def toggle_theme(self, checked: bool) -> None:
+    def toggle_theme(self, dark_mode: bool) -> None:
         """
-        切换浅色/深色主题
-        
-        Args:
-            checked: True为深色主题，False为浅色主题
-        """
-        if checked:  # 深色主题
-            setTheme(Theme.DARK)
-            self.setStyleSheet("QWidget { background-color: #202020; }")
-            self.set_windows_title_bar_color(True)
-            self.update_window_icon(True)
-            self.apply_matplotlib_theme(True)
-        else:  # 浅色主题
-            setTheme(Theme.LIGHT)
-            self.setStyleSheet("QWidget { background-color: #f3f3f3; }")
-            self.set_windows_title_bar_color(False)
-            self.update_window_icon(False)
-            self.apply_matplotlib_theme(False)
-    
-    def apply_theme(self, dark_mode: bool) -> None:
-        """
-        应用主题(外部调用接口)
+        应用主题但不修改标题栏颜色(用于初始化时)
         
         Args:
             dark_mode: True为深色主题，False为浅色主题
         """
-        self.toggle_theme(dark_mode)
-        if hasattr(self, 'combo_lessons'):
-            self.update_chart()
+        if hasattr(self, 'chart_view'):
+            bg_color = QtGui.QColor(32, 32, 32) if dark_mode else QtGui.QColor(243, 243, 243)
+            self.chart_view.page().setBackgroundColor(bg_color)
+        if dark_mode:  # 深色主题
+            setTheme(Theme.DARK)
+            self.setStyleSheet("QWidget { background-color: #202020; }")
+            self.set_windows_title_bar_color(True)
+            self.update_window_icon(True)
+            self.apply_html_theme(True)
+        else:  # 浅色主题
+            setTheme(Theme.LIGHT)
+            self.setStyleSheet("QWidget { background-color: #F3F3F3; }")
+            self.set_windows_title_bar_color(False)
+            self.update_window_icon(False)
+            self.apply_html_theme(False)
     
     def set_windows_title_bar_color(self, dark_mode: bool) -> None:
         """
@@ -929,7 +651,7 @@ class StatisticsWindow(QDialog):
         """
         try:
             hwnd = int(self.winId())
-            
+
             # 设置深色/浅色模式
             dwmwa_use_immersive_dark_mode = 20
             value = c_int(1 if dark_mode else 0)
@@ -957,112 +679,66 @@ class StatisticsWindow(QDialog):
             # 非Windows系统或API调用失败时忽略
             pass
     
-    def apply_matplotlib_theme(self, dark_mode: bool) -> None:
+    def apply_html_theme(self, dark_mode: bool) -> None:
         """
-        应用matplotlib主题
-        
-        配置matplotlib的全局样式参数，包括颜色、字体、抗锯齿等
+        应用HTML图表主题
         
         Args:
             dark_mode: True为深色主题，False为浅色主题
         """
-        if dark_mode:
-            plt.rcParams.update({
-                # 背景色
-                'figure.facecolor': '#202020',
-                'axes.facecolor': '#202020',
-                'savefig.facecolor': '#202020',
-                
-                # 文字和标签
-                'text.color': '#FFFFFF',
-                'axes.labelcolor': '#FFFFFF',
-                'axes.edgecolor': '#FFFFFF',
-                
-                # 刻度
-                'xtick.color': '#FFFFFF',
-                'ytick.color': '#FFFFFF',
-                
-                # 网格
-                'grid.color': '#444444',
-                'grid.alpha': 0.5,
-                'grid.linestyle': '--',
-                
-                # 边框
-                'axes.linewidth': 1,
-                
-                # 字体
-                'font.family': 'Segoe UI',
-                'font.size': 10.5,
-                'axes.labelsize': 10.5,
-                'axes.titlesize': 10.5,
-                'xtick.labelsize': 9.5,
-                'ytick.labelsize': 9.5,
-                'legend.fontsize': 9.5,
-                
-                # 抗锯齿设置
-                'lines.antialiased': True,
-                'patch.antialiased': True,
-                'text.antialiased': True
-            })
-            
-            # 提示框配置(深色主题)
-            self.annot_config = {
-                'font_family': 'Segoe UI',
-                'font_size': 9.5,
-                'font_color': '#FFFFFF',
-                'bg_color': '#2D2D2D',
-                'bg_alpha': 0.95,
-                'edge_color': '#555555',
-                'edge_width': 1
-            }
-        else:
-            plt.rcParams.update({
-                # 背景色
-                'figure.facecolor': '#F3F3F3',
-                'axes.facecolor': '#F3F3F3',
-                'savefig.facecolor': '#F3F3F3',
-                
-                # 文字和标签
-                'text.color': '#000000',
-                'axes.labelcolor': '#000000',
-                'axes.edgecolor': '#000000',
-                
-                # 刻度
-                'xtick.color': '#000000',
-                'ytick.color': '#000000',
-                
-                # 网格
-                'grid.color': '#CCCCCC',
-                'grid.alpha': 0.3,
-                'grid.linestyle': '--',
-                
-                # 边框
-                'axes.linewidth': 1,
-                
-                # 字体
-                'font.family': 'Segoe UI',
-                'font.size': 10.5,
-                'axes.labelsize': 10.5,
-                'axes.titlesize': 10.5,
-                'xtick.labelsize': 9.5,
-                'ytick.labelsize': 9.5,
-                'legend.fontsize': 9.5,
-                
-                # 抗锯齿设置
-                'lines.antialiased': True,
-                'patch.antialiased': True,
-                'text.antialiased': True
-            })
-            
-            # 提示框配置(浅色主题)
-            self.annot_config = {
-                'font_family': 'Segoe UI',
-                'font_size': 9.5,
-                'font_color': '#000000',
-                'bg_color': '#FFFFFF',
-                'bg_alpha': 0.95,
-                'edge_color': '#CCCCCC',
-                'edge_width': 1
-            }
-        
+        if hasattr(self, 'segmented_tool'):
+            self.update_chart()
+
         self.is_dark_theme = dark_mode
+    
+    # ==================== 延迟渲染图表 ====================
+
+    def showEvent(self, event) -> None:
+        """
+        窗口显示事件处理
+        
+        延迟渲染图表以提升初始加载性能
+        """
+        super().showEvent(event)
+        if not self._titlebar_applied:
+            self.set_windows_title_bar_color(self.is_dark_theme)
+            self._titlebar_applied = True
+        if not self._chart_initialized:
+            self.update_chart()
+            self._chart_initialized = True
+
+    # ==================== 关闭窗口并重置HTML内容 ====================
+    
+    def closeEvent(self, event):
+        """
+        窗口关闭事件处理
+        在关闭前重置HTML内容
+        
+        Args:
+            event: 关闭事件对象
+        """
+        if hasattr(self, 'chart_view'):
+            self.chart_view.setHtml("")
+        if hasattr(self, '_html_templates'):
+            self._html_templates.clear()
+        if hasattr(self, 'stats_manager'):
+            if hasattr(self.stats_manager, '_lesson_cache'):
+                self.stats_manager._lesson_cache.clear()
+            if hasattr(self.stats_manager, '_overall_cache'):
+                self.stats_manager._overall_cache = None
+        super().closeEvent(event)
+
+# ==================== 测试代码 ====================
+if __name__ == "__main__":
+    from PySide6.QtWidgets import QApplication
+    from Statistics import stats_manager
+    import sys
+    a = datetime.now()
+    app = QApplication(sys.argv)
+
+    stats_window = StatisticsWindow(stats_manager, is_dark_theme=False, is_transparent=False)
+    stats_window.show()
+    b = datetime.now()
+    print("Statistics window initialized in:", (b - a).total_seconds(), "seconds")
+
+    sys.exit(app.exec())

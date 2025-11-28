@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; width: 100%">
+
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <style>
+        #container canvas {
+            cursor: default !important;
+        }
+    </style>
+</head>
+
+<body style="height: 100%; width: 100%; background-color: #F3F3F3; margin: 0">
+<div id="container" style="height: 100%; width: 100%"></div>
+
+<script type="text/javascript" src="echarts.min.js"></script>
+
+<script type="text/javascript">
+    const isDark = false;
+    const theme = isDark ? 'dark' : 'light';
+    const dom = document.getElementById('container');
+    const chart = echarts.init(
+        dom,
+        theme,
+        {
+            renderer: 'canvas',
+            useDirtyRect: false,
+            devicePixelRatio: 2
+        }
+    );
+
+    const app = {};
+
+    let option;
+
+    const axisColor = isDark ? '#FFFFFF' : '#000000';
+    const textColor = isDark ? '#FFFFFF' : '#000000';
+    const figureColor = isDark ? '#202020' : '#F3F3F3';
+    const axesColor = isDark ? '#202020' : '#F3F3F3';
+    const gridColor = isDark ? '#444444' : '#CCCCCC';
+    const shadowColor = isDark ? '#222222' : '#EEEEEE';
+    const lineColor = isDark ? '#C8B5FC' : '#721ED9';
+    const symbolColor = isDark ? '#721ED9' : '#C8B5FC';
+    const barColor = isDark ? '#4A9B8E' : '#92E0D3';
+    const barhlColor = isDark ? '#92E0D3' : '#4A9B8E';
+    const annotbgColor = isDark ? '#000000' : '#FFFFFF';
+    const annotborderColor = isDark ? '#444444' : '#CCCCCC';
+    const gridAlpha = isDark ? 0.3 : 0.5;
+
+    const xlabel = '';
+    const xtickvalues = [];
+    const lessonID = [];
+    const y0label = '';
+    const y0labelunit = '';
+    const y0min = 0;
+    const y0max = 0;
+    const y0values = [];
+    const y1label = '';
+    const y1labelunit = '';
+    const y1min = 0;
+    const y1max = 0;
+    const y1values = [];
+    const accuracy_avg = 0;
+    const threshold = 90;
+
+    option = {
+        backgroundColor: figureColor,
+        tooltip: {
+            trigger: 'axis',
+            renderMode: 'html',
+            axisPointer: {
+                type: 'shadow',
+                axis: 'x'
+            },
+            shadowStyle: {
+                shadowColor: shadowColor,
+                opacity: gridAlpha
+            },
+            backgroundColor: annotbgColor,
+            borderColor: annotborderColor,
+            borderWidth: 1,
+            textStyle: {
+                color: textColor,
+                fontFamily: 'Segoe UI',
+                fontSize: 13.5,
+                lineHeight: 18
+            },
+            padding: 6,
+            formatter: function (params) {
+                const xIndex = params[0].dataIndex;
+                let result = '';
+                if (xlabel === 'Lesson ID') {
+                    result = '<div style="font-weight:550">Lesson ' + lessonID[xIndex] + '</div>';
+                } else {
+                    result = '<div style="font-weight:550">' + xtickvalues[xIndex] + '</div>';
+                }
+
+                params.forEach(function (item) {
+                    if (item.seriesName === 'Accuracy') {
+                        result += '<div>' + item.marker + ' ' + item.seriesName + ': <span style="font-weight:550">' + item.value + '%</span></div>';
+                    } else if (item.seriesName === 'Practice Count') {
+                        result += '<div>' + item.marker + ' ' + item.seriesName + ': <span style="font-weight:550">' + item.value + '</span></div>';
+                    } else if (item.seriesName === 'Practice Time') {
+                        result += '<div>' + item.marker + ' ' + item.seriesName + ': <span style="font-weight:550">' + item.value + 'm</span></div>';
+                    }
+                });
+                return result;
+            }
+        },
+        legend: [
+            {
+                inactiveColor: annotborderColor,
+                inactiveBorderColor: annotborderColor,
+                inactiveBorderWidth: 0,
+                data: [
+                    {
+                        name: 'Accuracy',
+                    },
+                ],
+                itemHeight: 7.5,
+                itemStyle: {
+                    borderWidth: 1
+                },
+                lineStyle: {
+                    width: 1,
+                    inactiveColor: annotborderColor,
+                },
+                top: '10px',
+                left: '54px',
+                textStyle: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                }
+            },
+            {
+                inactiveColor: annotborderColor,
+                inactiveBorderColor: annotborderColor,
+                inactiveBorderWidth: 0,
+                data: [
+                    {
+                        name: 'Average Accuracy: ' + accuracy_avg + '%',
+                        itemStyle: {
+                            opacity: 0
+                        },
+                        lineStyle: {
+                            color: lineColor,
+                            type: 'dashed',
+                            dashOffset: 5,
+                            width: 1
+                        }
+                    },
+                    {
+                        name: 'Accuracy Threshold',
+                        itemStyle: {
+                            opacity: 0
+                        },
+                        lineStyle: {
+                            color: '#F86D6B',
+                            type: 'dashed',
+                            dashOffset: 5,
+                            width: 1
+                        }
+                    },
+                    {
+                        name: y1label,
+                    }
+                ],
+                itemGap: 12,
+                lineStyle: {
+                    inactiveColor: annotborderColor,
+                },
+                top: '10px',
+                left: '150px',
+                textStyle: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                }
+            },
+        ],
+        grid: {
+            top: '45px',
+            bottom: '15%',
+            left: '0px',
+            right: '0px',
+            containLabel: false,
+            backgroundColor: axesColor,
+        },
+        xAxis: [
+            {
+                z: 2,
+                type: 'category',
+                name: xlabel,
+                nameLocation: 'center',
+                nameTextStyle: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                },
+                data: xtickvalues,
+                axisLine: {
+                    show: true,
+                    lineStyle: {
+                        width: 1,
+                        color: axisColor,
+                        cap: 'butt'
+                    }
+                },
+                axisLabel: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                    margin: 5,
+                    interval: 0
+                },
+            }
+        ],
+        yAxis: [
+            {
+                type: 'value',
+                name: y0label + ' ' + y0labelunit,
+                nameLocation: 'center',
+                nameTextStyle: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                },
+                min: y0min,
+                max: y0max,
+                interval: y0max / 10,
+                axisLabel: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                    margin: 5
+                },
+                axisLine: {
+                    show: true,
+                    lineStyle: {
+                        width: 1,
+                        color: axisColor,
+                        cap: 'butt'
+                    }
+                },
+                axisTick: {
+                    show: true,
+                    inside: true,
+                    length: 4,
+                    lineStyle: {
+                        width: 1,
+                        color: axisColor,
+                        cap: 'butt'
+                    }
+                },
+                splitLine: {
+                    show: true,
+                    lineStyle: {
+                        color: gridColor,
+                        width: 1,
+                        type: 'dashed',
+                        cap: 'butt',
+                        opacity: gridAlpha
+                    }
+                },
+            },
+            {
+                type: 'value',
+                name: y1label + ' ' + y1labelunit,
+                nameLocation: 'center',
+                nameTextStyle: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                },
+                min: y1min,
+                max: y1max,
+                interval: y1max / 10,
+                axisLabel: {
+                    color: textColor,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 13.5,
+                    margin: 5
+                },
+                axisLine: {
+                    show: true,
+                    lineStyle: {
+                        width: 1,
+                        color: axisColor,
+                        cap: 'butt'
+                    }
+                },
+                axisTick: {
+                    show: true,
+                    inside: true,
+                    length: 3,
+                    lineStyle: {
+                        width: 1,
+                        color: axisColor,
+                        cap: 'square'
+                    }
+                },
+                splitLine: {
+                    show: true,
+                    lineStyle: {
+                        color: gridColor,
+                        width: 1,
+                        type: 'dashed',
+                        opacity: gridAlpha
+                    }
+                },
+            }
+        ],
+        series: [
+            {
+                name: 'Accuracy',
+                type: 'line',
+                data: y0values,
+                symbol: 'circle',
+                symbolSize: 6,
+                itemStyle: {
+                    color: symbolColor,
+                    borderColor: lineColor,
+                    borderWidth: 1
+                },
+                lineStyle: {
+                    width: 1,
+                    color: lineColor,
+                    cap: 'butt'
+                },
+                emphasis: {
+                    scale: 1.5
+                }
+            },
+            {
+                name: 'Average Accuracy: ' + accuracy_avg + '%',
+                type: 'line',
+                data: [],
+                yAxisIndex: 0,
+                lineStyle: {width: 0},
+                markLine: {
+                    z: 0,
+                    symbol: 'none',
+                    data: [{yAxis: accuracy_avg}],
+                    lineStyle: {
+                        color: lineColor,
+                        type: 'dashed',
+                        width: 1,
+                        cap: 'butt'
+                    },
+                    label: {
+                        show: false
+                    },
+                    emphasis: {
+                        disabled: true
+                    }
+                },
+            },
+            {
+                name: 'Accuracy Threshold',
+                type: 'line',
+                data: [],
+                yAxisIndex: 0,
+                lineStyle: {width: 0},
+                markLine: {
+                    z: 0,
+                    symbol: 'none',
+                    data: [{yAxis: threshold}],
+                    lineStyle: {
+                        color: '#F86D6B',
+                        type: 'dashed',
+                        width: 1,
+                        cap: 'butt'
+                    },
+                    label: {
+                        show: false
+                    },
+                    emphasis: {
+                        disabled: true
+                    }
+                }
+            },
+            {
+                name: y1label,
+                type: 'bar',
+                yAxisIndex: 1,
+                z: 0,
+                data: y1values,
+                itemStyle: {
+                    color: barColor
+                },
+                emphasis: {
+                    itemStyle: {
+                        color: barhlColor
+                    }
+                }
+            }
+        ]
+    };
+
+    if (option && typeof option === 'object') {
+        chart.setOption(option, true);
+    }
+
+    window.addEventListener('resize', chart.resize);
+</script>
+</body>
+
+</html>
