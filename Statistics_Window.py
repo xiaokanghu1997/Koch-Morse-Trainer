@@ -442,7 +442,7 @@ class StatisticsWindow(QDialog):
         data_replacement = {
             "const xlabel = '';": "const xlabel = 'Lesson ID';",
             "const xtickvalues = [];": f"const xtickvalues = {repr(xtickvalues)};",
-            "const lesson_id = [];": f"const lesson_id = {repr(lesson_id)};",
+            "const lessonID = [];": f"const lessonID = {repr(lesson_id)};",
             "const y0label = '';": "const y0label = 'Practice Accuracy';",
             "const y0labelunit = '';": "const y0labelunit = '(%)';",
             "const y0min = 0;": "const y0min = 0;",

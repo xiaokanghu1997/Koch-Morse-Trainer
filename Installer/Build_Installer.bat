@@ -4,6 +4,9 @@ echo   Koch Morse Trainer Installer Build Script
 echo =============================================
 echo.
 
+REM 切换到项目根目录（Installer的上一级）
+cd /d "%~dp0.."
+
 echo [1/4] Cleaning previous build artifacts...
 if exist "dist" rmdir /s /q "dist"
 if exist "build" rmdir /s /q "build"
