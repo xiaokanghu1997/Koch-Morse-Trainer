@@ -729,16 +729,16 @@ class StatisticsWindow(QDialog):
         super().closeEvent(event)
 
 # ==================== 测试代码 ====================
-if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
-    from Statistics import stats_manager
-    import sys
-    a = datetime.now()
-    app = QApplication(sys.argv)
-
-    stats_window = StatisticsWindow(stats_manager, is_dark_theme=False, is_transparent=False)
-    stats_window.show()
-    b = datetime.now()
-    print("Statistics window initialized in:", (b - a).total_seconds(), "seconds")
-
-    sys.exit(app.exec())
+# if __name__ == "__main__":
+#     from PySide6.QtWidgets import QApplication
+#     from Statistics import stats_manager
+#     import sys
+#     a = datetime.now()
+#     app = QApplication(sys.argv)
+#
+#     stats_window = StatisticsWindow(stats_manager, is_dark_theme=False, is_transparent=False)
+#     stats_window.show()
+#     b = datetime.now()
+#     print("Statistics window initialized in:", (b - a).total_seconds(), "seconds")
+#
+#     sys.exit(app.exec())

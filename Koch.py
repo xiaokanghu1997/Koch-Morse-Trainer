@@ -16,11 +16,11 @@ from PySide6 import QtGui
 from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize, QSignalBlocker
 from PySide6.QtGui import QShortcut, QKeySequence, QIcon, QFont
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSlider
 
 from qfluentwidgets import (
-    BodyLabel, StrongBodyLabel, ComboBox, ProgressBar, 
-    PushButton, TextEdit, setTheme, Theme, SwitchButton, FluentIcon
+    BodyLabel, StrongBodyLabel, ComboBox, 
+    PushButton, TextEdit, setTheme, Theme, ThemeColor, SwitchButton, FluentIcon
 )
 
 from Config import config
@@ -76,8 +76,8 @@ class KochWindow(QWidget):
     
     # 交互控件
     combo_lessons: ComboBox             # 课程选择下拉框
-    progress_char: ProgressBar          # 字符音频进度条
-    progress_text: ProgressBar          # 文本音频进度条
+    progress_char: QSlider              # 字符音频进度条
+    progress_text: QSlider              # 文本音频进度条
     text_input: TextEdit                # 练习文本输入框
     
     # 按钮控件
@@ -107,10 +107,13 @@ class KochWindow(QWidget):
     is_result_checked: bool             # 是否已检查结果
     is_char_playing: bool               # 字符音频是否正在播放
     is_char_restart: bool               # 字符音频重播状态
+    is_char_seeking: bool               # 字符音频进度条拖动状态
     is_text_playing: bool               # 文本音频是否正在播放
     is_text_restart: bool               # 文本音频重播状态
+    is_text_seeking: bool               # 文本音频进度条拖动状态
     countdown_value: int                # 倒计时当前值
     is_countdown_active: bool           # 倒计时是否激活
+    is_dark_theme: bool                 # 当前是否为深色主题
     
     def __init__(self):
         """初始化Koch窗口"""
@@ -133,8 +136,11 @@ class KochWindow(QWidget):
         # ==================== 初始化状态变量 ====================
         self.is_char_playing = False  # 字符音频是否正在播放
         self.is_char_restart = False  # 字符音频重播状态
+        self.is_char_seeking = False  # 字符音频进度条拖动状态
         self.is_text_playing = False  # 文本音频是否正在播放
         self.is_text_restart = False  # 文本音频重播状态
+        self.is_text_seeking = False  # 文本音频进度条拖动状态
+        self.is_dark_theme = False  # 当前是否为深色主题
         self.current_lesson_name = None  # 当前课程名称
         self.current_text_index = 0  # 当前练习文本索引（0-19）
         self.countdown_value = self.COUNTDOWN_SECONDS  # 倒计时当前值
@@ -309,9 +315,15 @@ class KochWindow(QWidget):
         self.hbox32 = QHBoxLayout()
         
         # 进度条
-        self.progress_char = ProgressBar()
-        self.progress_char.setFixedWidth(250)
+        self.progress_char = QSlider(Qt.Horizontal)
+        self.progress_char.setFixedSize(250, 30)
+        self.progress_char.setMinimum(0)
+        self.progress_char.setMaximum(1000)
         self.progress_char.setValue(0)
+        self.set_slider_style(self.progress_char)
+        self.progress_char.sliderPressed.connect(self.on_char_slider_pressed)
+        self.progress_char.sliderReleased.connect(self.on_char_slider_released)
+        self.progress_char.valueChanged.connect(self.on_char_slider_value_changed)
         self.hbox32.addWidget(self.progress_char)
         
         # 时间显示
@@ -362,9 +374,15 @@ class KochWindow(QWidget):
         self.hbox42 = QHBoxLayout()
         
         # 进度条
-        self.progress_text = ProgressBar()
-        self.progress_text.setFixedWidth(250)
+        self.progress_text = QSlider(Qt.Horizontal)
+        self.progress_text.setFixedSize(250, 30)
+        self.progress_text.setMinimum(0)
+        self.progress_text.setMaximum(1000)
         self.progress_text.setValue(0)
+        self.set_slider_style(self.progress_text)
+        self.progress_text.sliderPressed.connect(self.on_text_slider_pressed)
+        self.progress_text.sliderReleased.connect(self.on_text_slider_released)
+        self.progress_text.valueChanged.connect(self.on_text_slider_value_changed)
         self.hbox42.addWidget(self.progress_text)
         
         # 时间显示
@@ -727,8 +745,11 @@ class KochWindow(QWidget):
         Args:
             position: 当前播放位置（毫秒）
         """
-        self.progress_char.setValue(position)
-        self.label_char_current_time.setText(self.format_time(position))
+        if not self.is_char_seeking:
+            if self.char_player.duration() > 0:
+                progress = int((position / self.char_player.duration()) * 1000)
+                self.progress_char.setValue(progress)
+            self.label_char_current_time.setText(self.format_time(position))
     
     def update_char_duration(self, duration: int):
         """
@@ -738,7 +759,6 @@ class KochWindow(QWidget):
             duration: 音频总时长（毫秒）
         """
         self.label_char_total_time.setText(self.format_time(duration))
-        self.progress_char.setMaximum(duration)
     
     def update_char_playback_state(self, state: QMediaPlayer.PlaybackState):
         """
@@ -754,6 +774,36 @@ class KochWindow(QWidget):
             self.progress_char.setValue(0)
             self.btn_char_restart.setEnabled(False)
             self.is_char_restart = False
+            self.is_char_seeking = False
+    
+    # ==================== 字符音频进度条控制 ====================
+
+    def on_char_slider_pressed(self):
+        """
+        字符音频进度条开始拖动
+        """
+        self.is_char_seeking = True
+    
+    def on_char_slider_released(self):
+        """
+        字符音频进度条结束拖动
+        更新播放位置
+        """
+        self.is_char_seeking = False
+        if self.char_player.duration() > 0:
+            position = int((self.progress_char.value() / 1000) * self.char_player.duration())
+            self.char_player.setPosition(position)
+    
+    def on_char_slider_value_changed(self, value: int):
+        """
+        字符音频进度条值变化时更新当前时间显示
+        
+        Args:
+            value: 进度条当前值（0-1000）
+        """
+        if self.is_char_seeking and self.char_player.duration() > 0:
+            position = int((value / 1000) * self.char_player.duration())
+            self.label_char_current_time.setText(self.format_time(position))
     
     # ==================== 练习文本音频控制 ====================
     
@@ -869,8 +919,11 @@ class KochWindow(QWidget):
         Args:
             position: 当前播放位置（毫秒）
         """
-        self.progress_text.setValue(position)
-        self.label_text_current_time.setText(self.format_time(position))
+        if not self.is_text_seeking:
+            if self.text_player.duration() > 0:
+                progress = int((position / self.text_player.duration()) * 1000)
+                self.progress_text.setValue(progress)
+            self.label_text_current_time.setText(self.format_time(position))
     
     def update_text_duration(self, duration: int):
         """
@@ -880,7 +933,6 @@ class KochWindow(QWidget):
             duration: 音频总时长（毫秒）
         """
         self.label_text_total_time.setText(self.format_time(duration))
-        self.progress_text.setMaximum(duration)
     
     def update_text_playback_state(self, state: QMediaPlayer.PlaybackState):
         """
@@ -896,6 +948,39 @@ class KochWindow(QWidget):
             self.progress_text.setValue(0)
             self.btn_text_restart.setEnabled(False)
             self.is_text_restart = False
+            self.is_text_seeking = False
+    
+    # ==================== 练习文本音频进度条控制 ====================
+
+    def on_text_slider_pressed(self):
+        """
+        练习文本音频进度条开始拖动
+        """
+        self.is_text_seeking = True
+        # 如果正在倒计时，取消倒计时
+        if self.is_countdown_active:
+            self.cancel_countdown()
+    
+    def on_text_slider_released(self):
+        """
+        练习文本音频进度条结束拖动
+        更新播放位置
+        """
+        self.is_text_seeking = False
+        if self.text_player.duration() > 0:
+            position = int((self.progress_text.value() / 1000) * self.text_player.duration())
+            self.text_player.setPosition(position)
+    
+    def on_text_slider_value_changed(self, value: int):
+        """
+        练习文本音频进度条值变化时更新当前时间显示
+        
+        Args:
+            value: 进度条当前值（0-1000）
+        """
+        if self.is_text_seeking and self.text_player.duration() > 0:
+            position = int((value / 1000) * self.text_player.duration())
+            self.label_text_current_time.setText(self.format_time(position))
     
     # ==================== 结果检查与评分 ====================
     
@@ -1113,13 +1198,17 @@ class KochWindow(QWidget):
             self.setStyleSheet("QWidget { background-color: #202020; }")
             self.set_windows_title_bar_color(True)
             self.update_window_icon(True)
+            self.is_dark_theme = True
         else:  # 浅色主题
             setTheme(Theme.LIGHT)
             self.setStyleSheet("QWidget { background-color: #f3f3f3; }")
             self.set_windows_title_bar_color(False)
             self.update_window_icon(False)
+            self.is_dark_theme = False
         
         self.switch_theme.setText("")
+        self.set_slider_style(self.progress_char)
+        self.set_slider_style(self.progress_text)
     
     def set_windows_title_bar_color(self, dark_mode: bool):
         """
@@ -1158,6 +1247,59 @@ class KochWindow(QWidget):
         except (OSError, AttributeError):
             # 非Windows系统或API调用失败时忽略
             pass
+
+    def set_slider_style(self, slider: QSlider):
+        """
+        为 QSlider 应用 QFluentWidgets 主题颜色
+    
+        Args:
+            slider: 要应用样式的滑块
+        """
+        # 获取主题颜色
+        theme_color = ThemeColor.PRIMARY.color().name()
+        if self.is_dark_theme:
+            # 深色主题
+            groove_color = "#A8A8A8"
+            handle_bg_color = "#929292"
+            handle_hover_color = "#A6A6A6"
+        else:
+            # 浅色主题
+            groove_color = "#909090"
+            handle_bg_color = "#A6A6A6"
+            handle_hover_color = "#929292"
+    
+        slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: transparent;
+            }}
+            QSlider::sub-page:horizontal {{
+                height: 4px;
+                background: {theme_color};
+                margin: 0px 0;
+                border-radius: 2px;
+            }}
+            QSlider::add-page:horizontal {{
+                height: 2px;
+                background: {groove_color};
+                margin: 1px 0;
+                border-radius: 1px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {handle_bg_color};
+                width: 5px;
+                height: 10px;
+                margin: -3px 0;
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: {handle_hover_color};
+                width: 5px;
+                height: 10px;
+                margin: -3px 0;
+                border-radius: 2px;
+            }}
+        """)
     
     # ==================== 统计窗口显示 ====================
 
