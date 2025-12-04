@@ -3,8 +3,8 @@ Koch方法摩尔斯电码训练材料创建工具
 用于学习和练习摩尔斯电码字符识别
 
 Author: xiaokanghu1997
-Date: 2025-11-28
-Version: 1.2.0
+Date: 2025-12-04
+Version: 1.2.3
 """
 
 import random

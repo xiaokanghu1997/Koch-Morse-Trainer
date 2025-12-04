@@ -3,10 +3,11 @@ Koch 统计窗口
 显示学习统计数据和图表
 
 Author: Xiaokang HU
-Date: 2025-11-28
-Version: 1.2.0
+Date: 2025-12-04
+Version: 1.2.3
 """
 
+import logging
 from ctypes import windll, byref, sizeof, c_int
 from datetime import datetime
 from typing import Optional
@@ -67,6 +68,9 @@ class StatisticsWindow(QDialog):
     label_total_time: StrongBodyLabel        # 总练习时长标签
     label_total_count: StrongBodyLabel       # 总练习次数标签
     chart_view: QWebEngineView               # 图表显示控件
+
+    # ==================== 类型注解 - 日志记录器 ====================
+    logger: logging.Logger                   # 日志记录器
     
     # ==================== 类型注解 - 状态变量 ====================
     stats_manager: StatisticsManager         # 统计管理器实例
@@ -94,6 +98,10 @@ class StatisticsWindow(QDialog):
             is_transparent: 是否应用透明效果
         """
         super().__init__(parent)
+
+        # 设置日志记录器
+        self.logger = logging.getLogger("Koch")
+        self.logger.info("Initializing Statistics Window")
 
         # 设置数据管理器
         self.stats_manager = statistics_manager
@@ -303,9 +311,11 @@ class StatisticsWindow(QDialog):
         2. 统计图表: 显示课程的练习情况
         """
         if self.segmented_tool.currentRouteKey() == "Calendar":
+            self.logger.debug("Switching to calendar view")
             self._setup_calendar_ui()
             self._plot_calendar_statistics()
         else:
+            self.logger.debug("Switching to table view")
             self._setup_table_ui()
             self._plot_global_statistics()
     
@@ -534,7 +544,12 @@ class StatisticsWindow(QDialog):
                 self._html_templates['calendar'] = file.read()
             with open(table_path, 'r', encoding='utf-8') as file:
                 self._html_templates['table'] = file.read()
-        except FileNotFoundError:
+            self.logger.debug("HTML templates loaded successfully")
+        except FileNotFoundError as e:
+            self.logger.error(f"HTML template files not found: {e}", exc_info=True)
+            self._html_templates = {'calendar': '', 'table': ''}
+        except Exception as e:
+            self.logger.error(f"Failed to load HTML templates: {e}", exc_info=True)
             self._html_templates = {'calendar': '', 'table': ''}
     
     def _generate_html(self, template_type: str, data_dict: dict) -> str:
@@ -717,6 +732,7 @@ class StatisticsWindow(QDialog):
         Args:
             event: 关闭事件对象
         """
+        self.logger.info("Statistics Window closed")
         if hasattr(self, 'chart_view'):
             self.chart_view.setHtml("")
         if hasattr(self, '_html_templates'):

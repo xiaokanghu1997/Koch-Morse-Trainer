@@ -2,12 +2,13 @@
 Koch 统计数据管理模块
 记录和管理练习统计数据
 
-Author: xiaokanghu1997
-Date: 2025-11-28
-Version: 1.2.0
+Author: Xiaokang HU
+Date: 2025-12-04
+Version: 1.2.3
 """
 
 import json
+import logging
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
@@ -30,6 +31,7 @@ class StatisticsManager:
     # ==================== 类型注解 - 实例变量 ====================
     stats_file: Path                    # 统计数据文件路径
     data: Dict[str, Any]                # 统计数据字典
+    logger: logging.Logger              # 日志记录器
     
     def __init__(self):
         """
@@ -37,6 +39,7 @@ class StatisticsManager:
         
         自动加载已有的统计数据，如果文件不存在则创建默认数据结构
         """
+        self.logger = logging.getLogger("Koch")
         self.stats_file = config.base_dir / "Statistics.json"
         self.data = self.load_statistics()
 
@@ -55,9 +58,13 @@ class StatisticsManager:
         if self.stats_file.exists():
             try:
                 with open(self.stats_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                self.logger.info(f"Statistics information loaded from {self.stats_file}")
+                return data
             except Exception as e:
-                print(f"Warning: Failed to load statistics - {e}")
+                self.logger.error(f"Failed to load statistics: {e}", exc_info=True)
+        else:
+            self.logger.info("No existing statistics file, using default structure")
         
         # 返回默认数据结构
         return {
@@ -78,8 +85,9 @@ class StatisticsManager:
         try:
             with open(self.stats_file, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)
+            self.logger.debug(f"Statistics saved to {self.stats_file}")
         except Exception as e:
-            print(f"Warning: Failed to save statistics - {e}")
+            self.logger.error(f"Failed to save statistics: {e}", exc_info=True)
     
     # ==================== 辅助方法 ====================
     
@@ -157,6 +165,7 @@ class StatisticsManager:
             accuracy: 准确率(0-100)
             practice_time: 练习时长(秒)
         """
+        self.logger.info(f"Adding practice record for lesson {lesson_name}, accuracy {accuracy:.2f}%, time {practice_time:.2f}s")
         # 提取课程编号
         lesson_number = self.extract_lesson_number(lesson_name)
         lesson_key = str(lesson_number)
@@ -366,7 +375,7 @@ class StatisticsManager:
                 ).strftime(display_format)
                 
             except (ValueError, KeyError) as e:
-                print(f"Warning: Failed to parse timestamp - {e}")
+                self.logger.warning(f"Failed to parse timestamp in record: {e}")
                 continue
         
         # 排序并计算平均值
@@ -430,7 +439,7 @@ class StatisticsManager:
                         year_accuracies.append(record.get("accuracy", 0))
                     
                 except (ValueError, KeyError) as e:
-                    print(f"Warning: Failed to parse timestamp - {e}")
+                    self.logger.warning(f"Failed to parse timestamp in year {year}: {e}")
                     continue
     
         # 生成该年的所有日期
@@ -481,7 +490,7 @@ class StatisticsManager:
                     dt = datetime. fromisoformat(record["timestamp"])
                     years.add(dt.year)
                 except (ValueError, KeyError) as e:
-                    print(f"Warning: Failed to parse timestamp - {e}")
+                    self.logger.warning(f"Failed to parse timestamp: {e}")
                     continue
         
         # 如果没有任何数据，返回当前年份

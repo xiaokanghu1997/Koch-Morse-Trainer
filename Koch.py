@@ -3,11 +3,12 @@ Koch - 摩尔斯电码训练器
 用于学习和练习摩尔斯电码字符识别
 
 Author: Xiaokang HU
-Date: 2025-11-28
-Version: 1.2.0
+Date: 2025-12-04
+Version: 1.2.3
 """
 
 import sys
+import logging
 from ctypes import windll, byref, sizeof, c_int
 from typing import Optional, Dict, List
 from datetime import datetime
@@ -15,7 +16,7 @@ from datetime import datetime
 from PySide6 import QtGui
 from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize, QSignalBlocker
 from PySide6.QtGui import QShortcut, QKeySequence, QIcon, QFont
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSlider
 
 from qfluentwidgets import (
@@ -31,6 +32,8 @@ class KochWindow(QWidget):
     """Koch主窗口类"""
     
     # ==================== 常量定义 ====================
+    APPLICATION_VERSION = "v1.2.3"       # 应用程序版本
+
     COUNTDOWN_SECONDS = 3               # 倒计时秒数
     ICON_SIZE = QSize(12, 12)           # 按钮图标大小
     WINDOW_WIDTH = 777                  # 窗口宽度
@@ -92,11 +95,15 @@ class KochWindow(QWidget):
     switch_theme: SwitchButton          # 主题开关
     
     # ==================== 类型注解 - 媒体播放器 ====================
+    media_devices: QMediaDevices        # 音频设备管理器
     char_player: QMediaPlayer           # 字符音频播放器
     char_audio_output: QAudioOutput     # 字符音频输出
     text_player: QMediaPlayer           # 文本音频播放器
     text_audio_output: QAudioOutput     # 文本音频输出
     countdown_timer: QTimer             # 倒计时定时器
+
+    # ==================== 类型注解 - 日志记录器 ====================
+    logger: logging.Logger              # 日志记录器
     
     # ==================== 类型注解 - 数据与状态 ====================
     settings: QSettings                 # 设置存储对象
@@ -119,13 +126,18 @@ class KochWindow(QWidget):
         """初始化Koch窗口"""
         super().__init__()
 
+        # ==================== 日志记录配置 ====================
+        self.logger = logging.getLogger("Koch")
+        self.logger.info("Initializing Koch Application")
+
         # ==================== 检查资源完整性 ====================
         resource_status = config.check_resources()
         if not resource_status['complete']:
             self._show_resource_warning(resource_status)
+            self.logger.warning(f"Incomplete resources detected: {resource_status}")
         
         # ==================== 窗口基础设置 ====================
-        self.setWindowTitle("Koch - Morse Code Trainer")
+        self.setWindowTitle(f"Koch - Morse Code Trainer {self.APPLICATION_VERSION}")
         self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
         self.set_windows_title_bar_color(False)  # 初始化为浅色标题栏
         self.update_window_icon(False)
@@ -156,6 +168,8 @@ class KochWindow(QWidget):
         
         # ==================== 初始化媒体播放器 ====================
         self.init_media_players()
+        self.media_devices = QMediaDevices(self)
+        self.media_devices.audioOutputsChanged.connect(self.on_audio_device_changed)
         
         # ==================== 设置用户界面 ====================
         self.setup_ui()
@@ -254,9 +268,6 @@ class KochWindow(QWidget):
         self.layout_main.addLayout(self.hbox4)
         self.layout_main.addLayout(self.hbox5)
         self.layout_main.addLayout(self.hbox6)
-        
-        # 初始化显示第一个课程的信息
-        self.update_information(self.combo_lessons.currentText())
     
     def _setup_row1(self):
         """第一行：课程信息和选择下拉框"""
@@ -643,6 +654,7 @@ class KochWindow(QWidget):
         Args:
             lesson_name: 课程名称，如 "01 - K, M"
         """
+        self.logger.info(f"Switching to lesson: {lesson_name}")
         # 如果是用户手动切换课程，保存课程名并重置文本索引
         if self.sender() == self.combo_lessons:
             self.save_lesson_name(lesson_name)
@@ -693,6 +705,48 @@ class KochWindow(QWidget):
         self.label_char_sound.setText(character)
         self.char_media_load()
     
+    # ==================== 音频设备管理 ====================
+
+    def on_audio_device_changed(self):
+        """
+        音频设备发生变化时
+        重新加载字符和文本音频播放器的音频输出设备
+        """
+        # 保存当前播放状态
+        char_was_playing = self.is_char_playing
+        text_was_playing = self.is_text_playing
+        char_position = self.char_player.position()
+        text_position = self.text_player.position()
+        char_source = self.char_player.source()
+        text_source = self.text_player.source()
+
+        # 停止播放
+        if char_was_playing:
+            self.char_player.pause()
+        if text_was_playing:
+            self.text_player.pause()
+
+        # 重新设置音频输出设备
+        self.char_audio_output = QAudioOutput()
+        self.char_player.setAudioOutput(self.char_audio_output)
+        self.text_audio_output = QAudioOutput()
+        self.text_player.setAudioOutput(self.text_audio_output)
+
+        # 恢复播放位置
+        if char_source.isValid():
+            self.char_player.setSource(char_source)
+            if char_position > 0:
+                self.char_player.setPosition(char_position)
+            if char_was_playing:
+                self.char_player.play()
+        
+        if text_source.isValid():
+            self.text_player.setSource(text_source)
+            if text_position > 0:
+                self.text_player.setPosition(text_position)
+            if text_was_playing:
+                self.text_player.play()
+    
     # ==================== 字符音频控制 ====================
     
     def char_media_load(self):
@@ -705,6 +759,7 @@ class KochWindow(QWidget):
         
         # 使用 pathlib 构建音频文件路径
         audio_file = config.get_character_audio(char_index)
+        self.logger.debug(f"Loading character audio: {current_character} from {audio_file}")
         self.char_player.setSource(QUrl.fromLocalFile(str(audio_file)))
     
     def char_play_pause(self):
@@ -815,6 +870,7 @@ class KochWindow(QWidget):
         lesson_num = self.label_lesson_num.text()
         audio_file = config.get_lesson_audio(int(lesson_num), self.current_text_index + 1)
 
+        self.logger.debug(f"Loading practice text audio for lesson {lesson_num}, index {self.current_text_index + 1}")
         self.text_player.setSource(QUrl.fromLocalFile(str(audio_file)))
 
         # 使用信号阻塞器，避免触发信号
@@ -1082,10 +1138,12 @@ class KochWindow(QWidget):
             
         except FileNotFoundError:
             # 文件不存在时的错误处理
+            self.logger.error(f"Answer file not found for lesson {self.label_lesson_num.text()}, index {self.current_text_index + 1}", exc_info=True)
             self.clear_layout(self.hbox62)
             self.hbox62.addWidget(BodyLabel("Error: Answer file not found!"))
         except Exception as e:
             # 其他异常的错误处理
+            self.logger.error(f"Error checking result: {str(e)}", exc_info=True)
             self.clear_layout(self.hbox62)
             self.hbox62.addWidget(BodyLabel(f"Error: {str(e)}"))
     
@@ -1126,6 +1184,7 @@ class KochWindow(QWidget):
         """
         self.settings.setValue(f"{lesson_name}_index", text_index)
         self.save_lesson_name(lesson_name)
+        self.logger.debug(f"Saved progress: {lesson_name}, index {text_index}")
     
     def load_lesson_progress(self):
         """
@@ -1287,17 +1346,17 @@ class KochWindow(QWidget):
             }}
             QSlider::handle:horizontal {{
                 background: {handle_bg_color};
-                width: 5px;
-                height: 10px;
-                margin: -3px 0;
-                border-radius: 2px;
+                width: 6px;
+                height: 6px;
+                margin: -1px 0;
+                border-radius: 3px;
             }}
             QSlider::handle:horizontal:hover {{
                 background: {handle_hover_color};
-                width: 5px;
-                height: 10px;
-                margin: -3px 0;
-                border-radius: 2px;
+                width: 6px;
+                height: 6px;
+                margin: -1px 0;
+                border-radius: 3px;
             }}
         """)
     
@@ -1347,6 +1406,7 @@ class KochWindow(QWidget):
             event: 关闭事件对象
         """
         self.save_lesson_progress(self.current_lesson_name, self.current_text_index)
+        self.logger.info("Koch Application closed")
         super().closeEvent(event)
 
 
@@ -1355,6 +1415,13 @@ class KochWindow(QWidget):
 if __name__ == "__main__":
     # 创建应用程序实例
     app = QApplication(sys.argv)
+
+    # 获取日志记录器
+    logger = logging.getLogger("Koch")
+    logger.info("=" * 50)
+    logger.info("Koch Application started")
+    logger.info(f"Version: {config.APP_VERSION}")
+    logger.info("=" * 50)
     
     # 设置默认浅色主题
     setTheme(Theme.LIGHT)
@@ -1364,4 +1431,6 @@ if __name__ == "__main__":
     window.show()
     
     # 进入应用程序主循环
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    logger.info(f"Koch Application exited with code {exit_code}")
+    sys.exit(exit_code)

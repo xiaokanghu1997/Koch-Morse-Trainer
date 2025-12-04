@@ -3,12 +3,13 @@ Koch 配置管理模块
 处理路径、设置等配置项
 
 Author: Xiaokang HU
-Date: 2025-11-28
-Version: 1.2.0
+Date: 2025-12-04
+Version: 1.2.3
 """
 
 import sys
-import json
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, Any
 
@@ -18,20 +19,18 @@ class Config:
     
     # ==================== 常量定义 ====================
     APP_NAME: str = "Koch"
-    APP_VERSION: str = "1.2.0"
+    APP_VERSION: str = "1.2.3"
     AUTHOR: str = "Xiaokang HU"
     
     def __init__(self):
         """初始化配置管理器"""
         self._base_dir = None
         self._resource_dir = None
-        self._config_file = None
-        self._user_settings = {}
         self._logo_dir = None  # Logo 目录
         self._echarts_dir = None  # Echarts 目录
         
         self._init_paths()
-        self._load_user_settings()
+        self._init_logging()
     
     # ==================== 私有方法 ====================
     
@@ -69,38 +68,39 @@ class Config:
         # 资源目录
         self._resource_dir = self._base_dir / "Resource"
         self._resource_dir.mkdir(exist_ok=True)
-        
-        # 配置文件
-        self._config_file = self._base_dir / "Config.json"
     
-    def _load_user_settings(self) -> None:
-        """加载用户配置文件"""
-        if self._config_file.exists():
-            try:
-                with open(self._config_file, 'r', encoding='utf-8') as f:
-                    self._user_settings = json.load(f)
-            except Exception as e:
-                print(f"Warning: Failed to load config file - {e}")
-                self._user_settings = {}
-    
-    # ==================== 公共方法 ====================
-    
-    def save_user_settings(self) -> None:
-        """保存用户配置到JSON文件"""
-        try:
-            with open(self._config_file, 'w', encoding='utf-8') as f:
-                json.dump(self._user_settings, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Warning: Failed to save config file - {e}")
-    
-    def get_setting(self, key: str, default: Any = None) -> Any:
-        """获取配置项"""
-        return self._user_settings.get(key, default)
-    
-    def set_setting(self, key: str, value: Any) -> None:
-        """设置配置项并自动保存"""
-        self._user_settings[key] = value
-        self.save_user_settings()
+    def _init_logging(self, level: int = logging.INFO) -> logging.Logger:
+        """初始化日志记录器"""
+        logger = logging.getLogger("Koch")
+        # 避免重复添加处理器
+        if logger.handlers:
+            return logger
+        logger.setLevel(level)
+        # 日志文件处理器（自动轮转，最大10MB，保留3个备份）
+        file_handler = RotatingFileHandler(
+            filename=self.log_file,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=3,
+            encoding='utf-8'
+        )
+        file_handler.setLevel(level)
+
+        # 控制台处理器（只显示警告及以上级别）
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.WARNING)
+
+        # 日志格式
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+        return logger
     
     # ==================== 路径属性 ====================
     
@@ -141,6 +141,16 @@ class Config:
         """
         return self._echarts_dir
     
+    @property
+    def log_file(self) -> Path:
+        """
+        获取日志文件路径
+
+        Returns:
+            日志文件的Path对象
+        """
+        return self._base_dir / "Koch.log"
+    
     def get_lesson_dir(self, lesson_num: int) -> Path:
         """获取指定课程的目录"""
         path = self._resource_dir / f"Lesson-{lesson_num:02d}"
@@ -171,11 +181,12 @@ class Config:
             - 打包后：从 PyInstaller 临时目录读取
             - 开发环境：从项目 Logo 目录读取
         """
+        logger = logging.getLogger("Koch")
         logo_path = self._logo_dir / f"logo_{theme}.png"
         
         # 检查文件是否存在
         if not logo_path.exists():
-            print(f"Warning: Logo file not found - {logo_path}")
+            logger.warning(f"Logo file not found: {logo_path}")
         
         return logo_path
     
@@ -191,9 +202,10 @@ class Config:
             - 打包后：从 PyInstaller 临时目录读取
             - 开发环境：从项目 Echarts 目录读取
         """
+        logger = logging.getLogger("Koch")
         html_path = self._echarts_dir / f"{template_name}.html"
         if not html_path.exists():
-            print(f"Warning: Echarts HTML file not found - {html_path}")
+            logger.warning(f"Echarts HTML file not found: {html_path}")
             
         return html_path
     
