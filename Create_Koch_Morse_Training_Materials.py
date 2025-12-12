@@ -3,8 +3,8 @@ Koch方法摩尔斯电码训练材料创建工具
 用于学习和练习摩尔斯电码字符识别
 
 Author: xiaokanghu1997
-Date: 2025-12-04
-Version: 1.2.3
+Date: 2025-12-12
+Version: 1.2.4
 """
 
 import random
@@ -554,6 +554,10 @@ class KochMethodTrainer:
             current_lesson = settings.value("current_lesson", None)
             all_keys = settings.allKeys()
             index_keys = [key for key in all_keys if key.endswith("_index")]
+
+            # 检查是否有音量和主题设置
+            has_volume = settings.contains("volume")
+            has_theme = settings.contains("dark_theme")
             
             # 检查是否有需要清空的数据
             if not index_keys and not current_lesson:
@@ -564,7 +568,7 @@ class KochMethodTrainer:
             
             # 显示当前状态
             print(f"\n{'='*70}")
-            print(f"📝 重置学习进度")
+            print(f"📝 重置学习进度和设置")
             print(f"{'='*70}\n")
             
             if current_lesson:
@@ -577,11 +581,22 @@ class KochMethodTrainer:
             for key in index_keys:
                 settings.remove(key)
                 cleared_count += 1
+            if cleared_count > 0:
+                print(f"✅ 已清空 {cleared_count} 个课程的练习进度")
+                print(f"✅ 每个课程将从第 1 个练习开始")
+            else:
+                print(f"⚠️ 未检测到任何课程的练习进度记录")
+            
+            # 删除音量设置
+            if has_volume:
+                settings.remove("volume")
+            # 重置主题设置为默认(浅色主题)
+            if has_theme:
+                settings.setValue("dark_theme", False)
+            else:
+                settings.setValue("dark_theme", False)
             
             settings.sync()
-            
-            print(f"✅ 已清空 {cleared_count} 个课程的练习进度")
-            print(f"✅ 每个课程将从第 1 个练习开始")
             print(f"{'='*70}\n")
             
         except Exception as e:

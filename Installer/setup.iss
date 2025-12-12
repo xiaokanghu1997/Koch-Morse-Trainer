@@ -1,7 +1,7 @@
 ; Koch 安装脚本
 
 #define MyAppName "Koch"
-#define MyAppVersion "1.2.3"
+#define MyAppVersion "1.2.4"
 #define MyAppPublisher "Xiaokang HU"
 #define MyAppExeName "Koch.exe"
 #define MyResourceGenExeName "Create Koch Morse Training Materials.exe"

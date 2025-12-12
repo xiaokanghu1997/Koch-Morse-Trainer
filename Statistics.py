@@ -3,8 +3,8 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: Xiaokang HU
-Date: 2025-12-04
-Version: 1.2.3
+Date: 2025-12-12
+Version: 1.2.4
 """
 
 import json
@@ -427,7 +427,7 @@ class StatisticsManager:
         
             for record in history:
                 try:
-                    dt = datetime. fromisoformat(record["timestamp"])
+                    dt = datetime.fromisoformat(record["timestamp"])
                     # 只统计指定年份的数据
                     if dt.year == year:
                         date_key = dt.strftime("%Y-%m-%d")
@@ -435,7 +435,7 @@ class StatisticsManager:
                     
                         # 累加年度统计
                         year_total_count += 1
-                        year_total_time += record. get("practice_time", 0)
+                        year_total_time += record.get("practice_time", 0)
                         year_accuracies.append(record.get("accuracy", 0))
                     
                 except (ValueError, KeyError) as e:
@@ -482,12 +482,12 @@ class StatisticsManager:
         years = set()
     
         # 遍历所有课程的历史记录
-        for lesson_key, lesson_data in self. data["lessons"].items():
+        for lesson_key, lesson_data in self.data["lessons"].items():
             history = lesson_data.get("accuracy_history", [])
         
             for record in history:
                 try:
-                    dt = datetime. fromisoformat(record["timestamp"])
+                    dt = datetime.fromisoformat(record["timestamp"])
                     years.add(dt.year)
                 except (ValueError, KeyError) as e:
                     self.logger.warning(f"Failed to parse timestamp: {e}")

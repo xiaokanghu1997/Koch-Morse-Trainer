@@ -59,6 +59,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ===================================================
 echo   Build completed!
-echo   Installer location: Build\Koch_Setup_v1.2.3.exe
+echo   Installer location: Build\Koch_Setup_v1.2.4.exe
 echo ===================================================
 pause

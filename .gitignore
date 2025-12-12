@@ -38,5 +38,8 @@ Resource/
 *.spec
 ~*
 
+# 错误记录
+Error_Log.txt
+
 # 其他文件
 Other/

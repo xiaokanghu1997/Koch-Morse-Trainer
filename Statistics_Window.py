@@ -3,8 +3,8 @@ Koch 统计窗口
 显示学习统计数据和图表
 
 Author: Xiaokang HU
-Date: 2025-12-04
-Version: 1.2.3
+Date: 2025-12-12
+Version: 1.2.4
 """
 
 import logging
@@ -75,7 +75,6 @@ class StatisticsWindow(QDialog):
     # ==================== 类型注解 - 状态变量 ====================
     stats_manager: StatisticsManager         # 统计管理器实例
     is_dark_theme: bool                      # 是否为深色主题
-    is_transparent: bool                     # 是否为透明窗口
 
     # ==================== 类型注解 - 图表信息 ====================
     current_html_theme: str                  # 当前HTML主题
@@ -86,7 +85,7 @@ class StatisticsWindow(QDialog):
         self, 
         statistics_manager,
         is_dark_theme: bool = False, 
-        is_transparent: bool = False,
+        transparency: float = 1.0,
         parent: Optional[QWidget] = None
     ):
         """
@@ -95,7 +94,7 @@ class StatisticsWindow(QDialog):
         Args:
             statistics_manager: 统计数据管理器实例
             is_dark_theme: 是否应用深色主题
-            is_transparent: 是否应用透明效果
+            transparent: 透明度值 (0.0 到 1.0)
         """
         super().__init__(parent)
 
@@ -112,7 +111,6 @@ class StatisticsWindow(QDialog):
 
         # 初始化状态变量
         self.is_dark_theme = is_dark_theme
-        self.is_transparent = is_transparent
 
         # 设置图表信息
         self.current_html_theme = None
@@ -129,7 +127,7 @@ class StatisticsWindow(QDialog):
 
         # 应用主题与透明度设置
         self.toggle_theme(is_dark_theme)
-        self.toggle_transparency(is_transparent)
+        self.setWindowOpacity(transparency)
         
         # 设置用户界面
         self.setup_ui()
@@ -599,16 +597,7 @@ class StatisticsWindow(QDialog):
             if widget is not None:
                 widget.deleteLater()
     
-    # ==================== 主题与透明度设置 ====================
-    
-    def toggle_transparency(self, checked: bool) -> None:
-        """
-        切换窗口透明度
-        
-        Args:
-            checked: True为透明，False为不透明
-        """
-        self.setWindowOpacity(0.1 if checked else 1.0)
+    # ==================== 主题设置 ====================
     
     def update_window_icon(self, dark_mode: bool) -> None:
         """

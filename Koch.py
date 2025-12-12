@@ -3,8 +3,8 @@ Koch - 摩尔斯电码训练器
 用于学习和练习摩尔斯电码字符识别
 
 Author: Xiaokang HU
-Date: 2025-12-04
-Version: 1.2.3
+Date: 2025-12-12
+Version: 1.2.4
 """
 
 import sys
@@ -17,11 +17,11 @@ from PySide6 import QtGui
 from PySide6.QtCore import Qt, QUrl, QSettings, QTimer, QSize, QSignalBlocker
 from PySide6.QtGui import QShortcut, QKeySequence, QIcon, QFont
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSlider
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 
 from qfluentwidgets import (
-    BodyLabel, StrongBodyLabel, ComboBox, 
-    PushButton, TextEdit, setTheme, Theme, ThemeColor, SwitchButton, FluentIcon
+    BodyLabel, StrongBodyLabel, ComboBox, Slider, 
+    ToolButton, PushButton, TextEdit, setTheme, Theme, SwitchButton, FluentIcon
 )
 
 from Config import config
@@ -32,95 +32,131 @@ class KochWindow(QWidget):
     """Koch主窗口类"""
     
     # ==================== 常量定义 ====================
-    APPLICATION_VERSION = "v1.2.3"       # 应用程序版本
+    APPLICATION_VERSION = "v1.2.4"              # 应用程序版本
 
-    COUNTDOWN_SECONDS = 3               # 倒计时秒数
-    ICON_SIZE = QSize(12, 12)           # 按钮图标大小
-    WINDOW_WIDTH = 777                  # 窗口宽度
-    WINDOW_HEIGHT = 300                 # 窗口高度
+    # 窗口尺寸
+    WINDOW_WIDTH = 777                          # 窗口宽度
+    WINDOW_HEIGHT = 300                         # 窗口高度
+
+    # 控件尺寸
+    COMBO_BOX_WIDTH = 100                       # 下拉框宽度
+    COMBO_BOX_HEIGHT = 30                       # 下拉框高度
+    PROGRESS_BAR_WIDTH = 250                    # 进度条宽度
+    PROGRESS_BAR_HEIGHT = 21                    # 进度条高度
+    PROGRESS_BAR_MIN = 0                        # 进度条最小值
+    PROGRESS_BAR_MAX = 1000                     # 进度条最大值
+    PROGRESS_BAR_DEFAULT = 0                    # 进度条默认值
+    LABEL_WIDTH = 40                            # 标签宽度
+    BUTTON_NORMAL_WIDTH = 100                   # 普通按钮宽度
+    BUTTON_NORMAL_HEIGHT = 30                   # 普通按钮高度
+    ICON_SIZE = QSize(12, 12)                   # 按钮图标大小
+
+    # 设置面板尺寸
+    SETTINGS_VIEW_WIDTH = 262                   # 设置面板宽度
+    SETTINGS_VIEW_HEIGHT = 126                  # 设置面板高度
+
+    # 透明度配置
+    TRANSPARENCY_MIN = 10                       # 最小透明度
+    TRANSPARENCY_MAX = 100                      # 最大透明度
+    TRANSPARENCY_DEFAULT = 100                  # 默认透明度
+
+    # 音量配置
+    VOLUME_MIN = 0                              # 最小音量
+    VOLUME_MAX = 100                            # 最大音量
+    VOLUME_DEFAULT = 50                         # 默认音量
+
+    # 倒计时配置
+    COUNTDOWN_SECONDS = 3                       # 倒计时秒数
     
     # 颜色配置（BGR格式）
-    DARK_TITLE_BAR_COLOR = 0x00202020   # 深色模式标题栏颜色 RGB(32, 32, 32)
-    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3  # 浅色模式标题栏颜色 RGB(243, 243, 243)
+    DARK_TITLE_BAR_COLOR = 0x00202020           # 深色模式标题栏颜色 RGB(32, 32, 32)
+    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3          # 浅色模式标题栏颜色 RGB(243, 243, 243)
     
     # 准确率评价阈值
-    EXCELLENT_THRESHOLD = 95.0          # 优秀
-    GREAT_THRESHOLD = 90.0              # 很好
-    GOOD_THRESHOLD = 80.0               # 良好
-    FAIR_THRESHOLD = 70.0               # 及格
+    EXCELLENT_THRESHOLD = 95.0                  # 优秀
+    GREAT_THRESHOLD = 90.0                      # 很好
+    GOOD_THRESHOLD = 80.0                       # 良好
+    FAIR_THRESHOLD = 70.0                       # 及格
     
     # ==================== 类型注解 - UI控件 ====================
     # 布局对象
-    layout_main: QVBoxLayout            # 主垂直布局
-    hbox1: QHBoxLayout                  # 第一行水平布局
-    hbox11: QHBoxLayout                 # 第一行左侧布局
-    hbox12: QHBoxLayout                 # 第一行右侧布局
-    hbox2: QHBoxLayout                  # 第二行水平布局
-    hbox21: QHBoxLayout                 # 第二行左侧布局
-    hbox3: QHBoxLayout                  # 第三行水平布局
-    hbox31: QHBoxLayout                 # 第三行左侧布局
-    hbox32: QHBoxLayout                 # 第三行右侧布局
-    hbox4: QHBoxLayout                  # 第四行水平布局
-    hbox41: QHBoxLayout                 # 第四行左侧布局
-    hbox42: QHBoxLayout                 # 第四行右侧布局
-    hbox5: QHBoxLayout                  # 第五行水平布局
-    hbox6: QHBoxLayout                  # 第六行水平布局
-    hbox61: QHBoxLayout                 # 第六行左侧布局
-    hbox62: QHBoxLayout                 # 第六行中间布局
-    hbox63: QHBoxLayout                 # 第六行右侧布局
+    layout_main: QVBoxLayout                    # 主垂直布局
+    hbox1: QHBoxLayout                          # 第一行水平布局
+    hbox11: QHBoxLayout                         # 第一行左侧布局
+    hbox12: QHBoxLayout                         # 第一行右侧布局
+    hbox2: QHBoxLayout                          # 第二行水平布局
+    hbox21: QHBoxLayout                         # 第二行左侧布局
+    hbox3: QHBoxLayout                          # 第三行水平布局
+    hbox31: QHBoxLayout                         # 第三行左侧布局
+    hbox32: QHBoxLayout                         # 第三行右侧布局
+    hbox4: QHBoxLayout                          # 第四行水平布局
+    hbox41: QHBoxLayout                         # 第四行左侧布局
+    hbox42: QHBoxLayout                         # 第四行右侧布局
+    hbox5: QHBoxLayout                          # 第五行水平布局
+    hbox6: QHBoxLayout                          # 第六行水平布局
+    hbox61: QHBoxLayout                         # 第六行左侧布局
+    hbox62: QHBoxLayout                         # 第六行中间布局
+    hbox63: QHBoxLayout                         # 第六行右侧布局
     
     # 标签控件
-    label_lesson_num: StrongBodyLabel   # 当前课程编号
-    label_char_sound: StrongBodyLabel   # 当前字符显示
-    label_char_total_time: BodyLabel    # 字符音频总时长
-    label_char_current_time: BodyLabel  # 字符音频当前时间
-    label_text_total_time: BodyLabel    # 文本音频总时长
-    label_text_current_time: BodyLabel  # 文本音频当前时间
+    label_lesson_num: StrongBodyLabel           # 当前课程编号
+    label_char_sound: StrongBodyLabel           # 当前字符显示
+    label_char_total_time: BodyLabel            # 字符音频总时长
+    label_char_current_time: BodyLabel          # 字符音频当前时间
+    label_text_total_time: BodyLabel            # 文本音频总时长
+    label_text_current_time: BodyLabel          # 文本音频当前时间
     
     # 交互控件
-    combo_lessons: ComboBox             # 课程选择下拉框
-    progress_char: QSlider              # 字符音频进度条
-    progress_text: QSlider              # 文本音频进度条
-    text_input: TextEdit                # 练习文本输入框
+    combo_lessons: ComboBox                     # 课程选择下拉框
+    progress_char: Slider                       # 字符音频进度条
+    progress_text: Slider                       # 文本音频进度条
+    text_input: TextEdit                        # 练习文本输入框
     
     # 按钮控件
-    btn_char_play_pause: PushButton     # 字符音频播放/暂停按钮
-    btn_char_restart: PushButton        # 字符音频重播按钮
-    btn_text_play_pause: PushButton     # 文本音频播放/暂停按钮
-    btn_text_restart: PushButton        # 文本音频重播按钮
-    btn_check: PushButton               # 检查结果按钮
-    
-    # 开关控件
-    switch_transparency: SwitchButton   # 透明度开关
-    switch_theme: SwitchButton          # 主题开关
+    btn_char_play_pause: PushButton             # 字符音频播放/暂停按钮
+    btn_char_restart: PushButton                # 字符音频重播按钮
+    btn_text_play_pause: PushButton             # 文本音频播放/暂停按钮
+    btn_text_restart: PushButton                # 文本音频重播按钮
+    btn_settings: ToolButton                    # 设置按钮
+    btn_check: PushButton                       # 检查结果按钮
+    btn_statistics: PushButton                  # 统计窗口显示按钮
     
     # ==================== 类型注解 - 媒体播放器 ====================
-    media_devices: QMediaDevices        # 音频设备管理器
-    char_player: QMediaPlayer           # 字符音频播放器
-    char_audio_output: QAudioOutput     # 字符音频输出
-    text_player: QMediaPlayer           # 文本音频播放器
-    text_audio_output: QAudioOutput     # 文本音频输出
-    countdown_timer: QTimer             # 倒计时定时器
+    media_devices: QMediaDevices                # 音频设备管理器
+    char_player: QMediaPlayer                   # 字符音频播放器
+    char_audio_output: QAudioOutput             # 字符音频输出
+    text_player: QMediaPlayer                   # 文本音频播放器
+    text_audio_output: QAudioOutput             # 文本音频输出
+    countdown_timer: QTimer                     # 倒计时定时器
+
+    # ==================== 类型注解 - 设置面板 ====================
+    settings_view: Optional[QWidget]            # 设置面板视图
+    slider_volume: Optional[Slider]             # 音量滑块
+    label_volume: Optional[BodyLabel]           # 音量标签
+    slider_transparency: Optional[Slider]       # 透明度滑块
+    label_transparency: Optional[BodyLabel]     # 透明度标签
+    switch_theme: Optional[SwitchButton]        # 主题开关
 
     # ==================== 类型注解 - 日志记录器 ====================
-    logger: logging.Logger              # 日志记录器
+    logger: logging.Logger                      # 日志记录器
     
     # ==================== 类型注解 - 数据与状态 ====================
-    settings: QSettings                 # 设置存储对象
-    total_characters: str               # 所有字符序列
-    lesson_data: Dict[str, List[str]]   # 课程数据字典
-    current_lesson_name: Optional[str]  # 当前课程名称
-    current_text_index: int             # 当前练习文本索引
-    is_result_checked: bool             # 是否已检查结果
-    is_char_playing: bool               # 字符音频是否正在播放
-    is_char_restart: bool               # 字符音频重播状态
-    is_char_seeking: bool               # 字符音频进度条拖动状态
-    is_text_playing: bool               # 文本音频是否正在播放
-    is_text_restart: bool               # 文本音频重播状态
-    is_text_seeking: bool               # 文本音频进度条拖动状态
-    countdown_value: int                # 倒计时当前值
-    is_countdown_active: bool           # 倒计时是否激活
-    is_dark_theme: bool                 # 当前是否为深色主题
+    settings: QSettings                         # 设置存储对象
+    total_characters: str                       # 所有字符序列
+    lesson_data: Dict[str, List[str]]           # 课程数据字典
+    current_lesson_name: Optional[str]          # 当前课程名称
+    current_text_index: int                     # 当前练习文本索引
+    is_result_checked: bool                     # 是否已检查结果
+    is_char_playing: bool                       # 字符音频是否正在播放
+    is_char_restart: bool                       # 字符音频重播状态
+    is_char_seeking: bool                       # 字符音频进度条拖动状态
+    is_text_playing: bool                       # 文本音频是否正在播放
+    is_text_restart: bool                       # 文本音频重播状态
+    is_text_seeking: bool                       # 文本音频进度条拖动状态
+    countdown_value: int                        # 倒计时当前值
+    is_countdown_active: bool                   # 倒计时是否激活
+    is_settings_tip_open: bool                  # 设置面板是否打开
+    is_dark_theme: bool                         # 当前是否为深色主题
     
     def __init__(self):
         """初始化Koch窗口"""
@@ -136,27 +172,42 @@ class KochWindow(QWidget):
             self._show_resource_warning(resource_status)
             self.logger.warning(f"Incomplete resources detected: {resource_status}")
         
-        # ==================== 窗口基础设置 ====================
-        self.setWindowTitle(f"Koch - Morse Code Trainer {self.APPLICATION_VERSION}")
-        self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
-        self.set_windows_title_bar_color(False)  # 初始化为浅色标题栏
-        self.update_window_icon(False)
-        
         # ==================== 初始化设置存储 ====================
         self.settings = QSettings("Koch", "LessonProgress")
+        
+        # ==================== 窗口基础设置 ====================
+        self.is_dark_theme = self.settings.value("dark_theme", False, type=bool)
+        self.setWindowTitle(f"Koch - Morse Code Trainer {self.APPLICATION_VERSION}")
+        self.setFixedSize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
+        self.setWindowOpacity(self.TRANSPARENCY_DEFAULT / 100.0)  # 设置默认透明度
+        # 应用主题
+        if self.is_dark_theme:
+            setTheme(Theme.DARK)
+            self.setStyleSheet("QWidget { background-color: #202020; }")
+            self.set_windows_title_bar_color(True)
+            self.update_window_icon(True)
+        else:
+            setTheme(Theme.LIGHT)
+            self.setStyleSheet("QWidget { background-color: #F3F3F3; }")
+            self.set_windows_title_bar_color(False)
+            self.update_window_icon(False)
         
         # ==================== 初始化状态变量 ====================
         self.is_char_playing = False  # 字符音频是否正在播放
         self.is_char_restart = False  # 字符音频重播状态
         self.is_char_seeking = False  # 字符音频进度条拖动状态
+
         self.is_text_playing = False  # 文本音频是否正在播放
         self.is_text_restart = False  # 文本音频重播状态
         self.is_text_seeking = False  # 文本音频进度条拖动状态
-        self.is_dark_theme = False  # 当前是否为深色主题
+        
         self.current_lesson_name = None  # 当前课程名称
         self.current_text_index = 0  # 当前练习文本索引（0-19）
+
         self.countdown_value = self.COUNTDOWN_SECONDS  # 倒计时当前值
         self.is_countdown_active = False  # 倒计时是否激活
+
+        self.is_settings_tip_open = False  # 设置面板是否打开
         self.is_result_checked = False  # 结果是否已检查
 
         # ==================== 初始化练习计时器数据 ====================
@@ -168,6 +219,11 @@ class KochWindow(QWidget):
         
         # ==================== 初始化媒体播放器 ====================
         self.init_media_players()
+        # 加载保存的音量，若无则使用默认值
+        current_volume = self.settings.value("volume", self.VOLUME_DEFAULT / 100.0, type=float)
+        self.char_audio_output.setVolume(current_volume)
+        self.text_audio_output.setVolume(current_volume)
+        # 获取媒体设备管理器
         self.media_devices = QMediaDevices(self)
         self.media_devices.audioOutputsChanged.connect(self.on_audio_device_changed)
         
@@ -287,7 +343,7 @@ class KochWindow(QWidget):
         self.hbox12 = QHBoxLayout()
         self.hbox12.addWidget(BodyLabel("Change to lesson:"))
         self.combo_lessons = ComboBox()
-        self.combo_lessons.setFixedSize(100, 30)
+        self.combo_lessons.setFixedSize(self.COMBO_BOX_WIDTH, self.COMBO_BOX_HEIGHT)
         self.combo_lessons.setMaxVisibleItems(5)
         self.combo_lessons.addItems(list(self.lesson_data.keys()))
         self.combo_lessons.currentTextChanged.connect(self.update_information)
@@ -326,20 +382,20 @@ class KochWindow(QWidget):
         self.hbox32 = QHBoxLayout()
         
         # 进度条
-        self.progress_char = QSlider(Qt.Horizontal)
-        self.progress_char.setFixedSize(250, 30)
-        self.progress_char.setMinimum(0)
-        self.progress_char.setMaximum(1000)
-        self.progress_char.setValue(0)
-        self.set_slider_style(self.progress_char)
+        self.progress_char = Slider(Qt.Horizontal)
+        self.progress_char.setFixedSize(self.PROGRESS_BAR_WIDTH, self.PROGRESS_BAR_HEIGHT)
+        self.progress_char.setMinimum(self.PROGRESS_BAR_MIN)
+        self.progress_char.setMaximum(self.PROGRESS_BAR_MAX)
+        self.progress_char.setValue(self.PROGRESS_BAR_DEFAULT)
         self.progress_char.sliderPressed.connect(self.on_char_slider_pressed)
         self.progress_char.sliderReleased.connect(self.on_char_slider_released)
         self.progress_char.valueChanged.connect(self.on_char_slider_value_changed)
         self.hbox32.addWidget(self.progress_char)
+        self.hbox32.addSpacing(-8)  # 微调间距
         
         # 时间显示
         self.label_char_current_time = BodyLabel("00:00")
-        self.label_char_current_time.setFixedWidth(40)
+        self.label_char_current_time.setFixedWidth(self.LABEL_WIDTH)
         self.label_char_current_time.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -352,7 +408,7 @@ class KochWindow(QWidget):
         self.btn_char_play_pause = PushButton("Play")
         self.btn_char_play_pause.setIcon(FluentIcon.PLAY)
         self.btn_char_play_pause.setIconSize(self.ICON_SIZE)
-        self.btn_char_play_pause.setFixedSize(100, 30)
+        self.btn_char_play_pause.setFixedSize(self.BUTTON_NORMAL_WIDTH, self.BUTTON_NORMAL_HEIGHT)
         self.btn_char_play_pause.clicked.connect(self.char_play_pause)
         self.hbox32.addWidget(self.btn_char_play_pause)
         
@@ -360,7 +416,7 @@ class KochWindow(QWidget):
         self.btn_char_restart = PushButton("Restart")
         self.btn_char_restart.setIcon(FluentIcon.SYNC)
         self.btn_char_restart.setIconSize(self.ICON_SIZE)
-        self.btn_char_restart.setFixedSize(100, 30)
+        self.btn_char_restart.setFixedSize(self.BUTTON_NORMAL_WIDTH, self.BUTTON_NORMAL_HEIGHT)
         self.btn_char_restart.setEnabled(False)
         self.btn_char_restart.clicked.connect(self.char_restart)
         self.hbox32.addWidget(self.btn_char_restart)
@@ -385,20 +441,20 @@ class KochWindow(QWidget):
         self.hbox42 = QHBoxLayout()
         
         # 进度条
-        self.progress_text = QSlider(Qt.Horizontal)
-        self.progress_text.setFixedSize(250, 30)
-        self.progress_text.setMinimum(0)
-        self.progress_text.setMaximum(1000)
-        self.progress_text.setValue(0)
-        self.set_slider_style(self.progress_text)
+        self.progress_text = Slider(Qt.Horizontal)
+        self.progress_text.setFixedSize(self.PROGRESS_BAR_WIDTH, self.PROGRESS_BAR_HEIGHT)
+        self.progress_text.setMinimum(self.PROGRESS_BAR_MIN)
+        self.progress_text.setMaximum(self.PROGRESS_BAR_MAX)
+        self.progress_text.setValue(self.PROGRESS_BAR_DEFAULT)
         self.progress_text.sliderPressed.connect(self.on_text_slider_pressed)
         self.progress_text.sliderReleased.connect(self.on_text_slider_released)
         self.progress_text.valueChanged.connect(self.on_text_slider_value_changed)
         self.hbox42.addWidget(self.progress_text)
+        self.hbox42.addSpacing(-8)  # 微调间距
         
         # 时间显示
         self.label_text_current_time = BodyLabel("00:00")
-        self.label_text_current_time.setFixedWidth(40)
+        self.label_text_current_time.setFixedWidth(self.LABEL_WIDTH)
         self.label_text_current_time.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -411,7 +467,7 @@ class KochWindow(QWidget):
         self.btn_text_play_pause = PushButton("Play")
         self.btn_text_play_pause.setIcon(FluentIcon.PLAY)
         self.btn_text_play_pause.setIconSize(self.ICON_SIZE)
-        self.btn_text_play_pause.setFixedSize(100, 30)
+        self.btn_text_play_pause.setFixedSize(self.BUTTON_NORMAL_WIDTH, self.BUTTON_NORMAL_HEIGHT)
         self.btn_text_play_pause.clicked.connect(self.text_play_pause)
         self.hbox42.addWidget(self.btn_text_play_pause)
         
@@ -419,7 +475,7 @@ class KochWindow(QWidget):
         self.btn_text_restart = PushButton("Restart")
         self.btn_text_restart.setIcon(FluentIcon.SYNC)
         self.btn_text_restart.setIconSize(self.ICON_SIZE)
-        self.btn_text_restart.setFixedSize(100, 30)
+        self.btn_text_restart.setFixedSize(self.BUTTON_NORMAL_WIDTH, self.BUTTON_NORMAL_HEIGHT)
         self.btn_text_restart.setEnabled(False)
         self.btn_text_restart.clicked.connect(self.text_restart)
         self.hbox42.addWidget(self.btn_text_restart)
@@ -451,30 +507,16 @@ class KochWindow(QWidget):
         """第六行：设置开关和结果显示"""
         self.hbox6 = QHBoxLayout()
         
-        # 左侧：透明度和主题切换
+        # 左侧：设置按钮
         self.hbox61 = QHBoxLayout()
-        
-        # 透明度开关
-        self.hbox61.addWidget(BodyLabel("Transparency:"))
-        self.switch_transparency = SwitchButton()
-        self.switch_transparency.setText("")
-        self.switch_transparency.setCheckedIndicatorColor(
-            QtGui.QColor(150, 150, 150), 
-            QtGui.QColor(90, 90, 90)
-        )
-        self.switch_transparency.checkedChanged.connect(self.toggle_transparency)
-        self.hbox61.addWidget(self.switch_transparency)
-        
-        # 主题开关
-        self.hbox61.addWidget(BodyLabel("Dark Theme:"))
-        self.switch_theme = SwitchButton()
-        self.switch_theme.setText("")
-        self.switch_theme.setCheckedIndicatorColor(
-            QtGui.QColor(150, 150, 150), 
-            QtGui.QColor(90, 90, 90)
-        )
-        self.switch_theme.checkedChanged.connect(self.toggle_theme)
-        self.hbox61.addWidget(self.switch_theme)
+
+        # 设置按钮
+        self.btn_settings = ToolButton()
+        self.btn_settings.setIcon(FluentIcon.SETTING)
+        self.btn_settings.setIconSize(self.ICON_SIZE)
+        self.btn_settings.setFixedSize(30, 30)
+        self.btn_settings.clicked.connect(self.show_settings_view)
+        self.hbox61.addWidget(self.btn_settings)
         
         self.hbox61.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
@@ -720,6 +762,9 @@ class KochWindow(QWidget):
         char_source = self.char_player.source()
         text_source = self.text_player.source()
 
+        # 保存当前音量
+        current_volume = self.char_audio_output.volume()
+
         # 停止播放
         if char_was_playing:
             self.char_player.pause()
@@ -731,6 +776,10 @@ class KochWindow(QWidget):
         self.char_player.setAudioOutput(self.char_audio_output)
         self.text_audio_output = QAudioOutput()
         self.text_player.setAudioOutput(self.text_audio_output)
+
+        # 恢复音量
+        self.char_audio_output.setVolume(current_volume)
+        self.text_audio_output.setVolume(current_volume)
 
         # 恢复播放位置
         if char_source.isValid():
@@ -1080,6 +1129,14 @@ class KochWindow(QWidget):
                 result_characters = "".join(lines).replace("\n", " ").upper().strip()
             
             # 定义等宽字体样式的HTML模板
+            html_styles = {
+                "correct": "color: #00AA00;",  # 绿色
+                "incorrect": "color: #CC0000; background-color: #FFE6E6;",  # 红色 + 浅红色背景
+                "missing": "color: #FF8C00; background-color: #FFF4E6;",  # 橙色 + 浅橙色背景
+                "extra": "color: #0066CC; background-color: #E6F2FF;",  # 蓝色 + 浅蓝色背景
+                "separator": "color: #888888;",  # 灰色分隔线
+                "answer": "color: #888888;",  # 灰色答案
+            }
             font_family = "font-family: Consolas, monospace;"
 
             # 逐字符对比并生成HTML高亮文本
@@ -1090,23 +1147,24 @@ class KochWindow(QWidget):
             for i in range(len(result_characters)):
                 if i < len(practice_text):
                     if practice_text[i] == result_characters[i]:  # 正确字符：绿色
-                        html_text += f'<span style="{font_family} color: #00AA00;">{practice_text[i]}</span>'
+                        html_text += f'<span style="{font_family} {html_styles["correct"]}">{practice_text[i]}</span>'
                         correct_count += 1
                     else:  # 错误字符：红色 + 浅红色背景
-                        html_text += f'<span style="{font_family} color: #CC0000; background-color: #FFE6E6;">{practice_text[i]}</span>'
+                        html_text += f'<span style="{font_family} {html_styles["incorrect"]}">{practice_text[i]}</span>'
                 else:  # 缺失字符：橙色 + 浅橙色背景
-                    html_text += f'<span style="{font_family} color: #FF8C00; background-color: #FFF4E6;">{result_characters[i]}</span>'
+                    html_text += f'<span style="{font_family} {html_styles["missing"]}">{result_characters[i]}</span>'
             
             # 处理多余的字符
             if len(practice_text) > len(result_characters):
                 for i in range(len(result_characters), len(practice_text)):  # 多余字符：蓝色 + 浅蓝色背景
-                    html_text += f'<span style="{font_family} color: #0066CC; background-color: #E6F2FF;">{practice_text[i]}</span>'
+                    html_text += f'<span style="{font_family} {html_styles["extra"]}">{practice_text[i]}</span>'
             
             # 使用信号阻塞器，避免触发信号
+            separator_text = "-" * 59
             with QSignalBlocker(self.text_input):
                 # 显示标准答案
-                separator = f'<br><span style="{font_family} color: #888888;">----------------------------</span>'
-                answer_text = f'<br><span style="{font_family} color: #888888;">{result_characters}</span>'
+                separator = f'<br><span style="{font_family} {html_styles["separator"]}">{separator_text}</span>'
+                answer_text = f'<br><span style="{font_family} {html_styles["answer"]}">{result_characters}</span>'
 
                 full_html = html_text + separator + answer_text
 
@@ -1213,15 +1271,171 @@ class KochWindow(QWidget):
     
     # ==================== 主题与透明度设置 ====================
     
-    def toggle_transparency(self, checked: bool):
+    def show_settings_view(self):
+        """显示设置侧边栏"""
+        # 检查设置面板是否已经打开
+        if self.is_settings_tip_open:
+            return
+        
+        # 标记设置面板为打开状态
+        self.is_settings_tip_open = True
+
+        # 创建设置面板内容
+        self.settings_view = QWidget(self)
+        self.settings_view.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | 
+            Qt.WindowType.Popup
+        )
+
+        # 创建一个容器来承载所有控件
+        settings_layout = QVBoxLayout(self.settings_view)
+        settings_layout.setContentsMargins(15, 10, 15, 10)
+        settings_layout.addWidget(StrongBodyLabel("Settings"))
+
+        # 音量滑块
+        hbox_volume = QHBoxLayout()
+        hbox_volume1 = QHBoxLayout()
+        hbox_volume2 = QHBoxLayout()
+
+        label_volume = BodyLabel("Volume:")
+        label_volume.setFixedWidth(85)
+        hbox_volume1.addWidget(label_volume)
+        hbox_volume1.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        current_volume = round(float(self.char_audio_output.volume()), 2)
+
+        self.slider_volume = Slider(Qt.Orientation.Horizontal)
+        self.slider_volume.setFixedSize(100, 21)
+        self.slider_volume.setMinimum(self.VOLUME_MIN)
+        self.slider_volume.setMaximum(self.VOLUME_MAX)
+        self.slider_volume.setValue(int(current_volume * 100))
+        self.slider_volume.valueChanged.connect(self.on_volume_changed)
+        hbox_volume2.addWidget(self.slider_volume)
+
+        self.label_volume = BodyLabel(f"{int(current_volume * 100)}%")
+        self.label_volume.setFixedWidth(35)
+        hbox_volume2.addWidget(self.label_volume)
+        hbox_volume2.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        hbox_volume.addLayout(hbox_volume1)
+        hbox_volume.addLayout(hbox_volume2)
+        settings_layout.addLayout(hbox_volume)
+        
+        # 透明度滑块
+        hbox_transparency = QHBoxLayout()
+        hbox_transparency1 = QHBoxLayout()
+        hbox_transparency2 = QHBoxLayout()
+
+        label_transparency = BodyLabel("Transparency:")
+        label_transparency.setFixedWidth(85)
+        hbox_transparency1.addWidget(label_transparency)
+        hbox_transparency1.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        current_opacity = round(float(self.windowOpacity()), 2)
+
+        self.slider_transparency = Slider(Qt.Orientation.Horizontal)
+        self.slider_transparency.setFixedSize(100, 21)
+        self.slider_transparency.setMinimum(self.TRANSPARENCY_MIN)
+        self.slider_transparency.setMaximum(self.TRANSPARENCY_MAX)
+        self.slider_transparency.setValue(int(current_opacity * 100))
+        self.slider_transparency.valueChanged.connect(self.on_transparency_changed)
+        hbox_transparency2.addWidget(self.slider_transparency)
+
+        self.label_transparency = BodyLabel(f"{int(current_opacity * 100)}%")
+        self.label_transparency.setFixedWidth(35)
+        hbox_transparency2.addWidget(self.label_transparency)
+        hbox_transparency2.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        hbox_transparency.addLayout(hbox_transparency1)
+        hbox_transparency.addLayout(hbox_transparency2)
+        settings_layout.addLayout(hbox_transparency)
+        
+        # 主题开关
+        hbox_theme = QHBoxLayout()
+        hbox_theme1 = QHBoxLayout()
+        hbox_theme2 = QHBoxLayout()
+
+        hbox_theme1.addWidget(BodyLabel("Application Dark Mode:"))
+        hbox_theme1.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        self.switch_theme = SwitchButton()
+        self.switch_theme.setCheckedIndicatorColor(
+            QtGui.QColor(150, 150, 150), 
+            QtGui.QColor(90, 90, 90)
+        )
+        self.switch_theme.setChecked(self.is_dark_theme)
+        self.switch_theme.checkedChanged.connect(self.toggle_theme)
+        hbox_theme2.addWidget(self.switch_theme)
+        hbox_theme2.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        hbox_theme.addLayout(hbox_theme1)
+        hbox_theme.addLayout(hbox_theme2)
+        settings_layout.addLayout(hbox_theme)
+        settings_layout.addSpacing(5)
+
+        self.settings_view.setFixedSize(self.SETTINGS_VIEW_WIDTH, self.SETTINGS_VIEW_HEIGHT)
+        btn_global_pos = self.btn_settings.mapToGlobal(self.btn_settings.rect().topLeft())
+        panel_x = btn_global_pos.x() - 2
+        panel_y = btn_global_pos.y() - self.settings_view.height() - 3
+        self.settings_view.move(panel_x, panel_y)
+        
+        self.settings_view.setWindowOpacity(self.windowOpacity())
+
+        try:
+            hwnd = int(self.settings_view.winId())
+            
+            DWMWA_WINDOW_CORNER_PREFERENCE = 33
+            corner_preference = c_int(2)
+            
+            windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                byref(corner_preference),
+                sizeof(corner_preference)
+            )
+        except:
+            pass
+
+        self.settings_view.show()
+
+        def on_close_event(event):
+            self.is_settings_tip_open = False
+            event.accept()
+        self.settings_view.closeEvent = on_close_event
+
+    def on_volume_changed(self, value: int):
+        """
+        切换音量大小
+        
+        Args:
+            value: 滑块值（0-100），对应音量0%-100%
+        """
+        volume = value / 100.0
+        # 设置音频输出音量
+        self.char_audio_output.setVolume(volume)
+        self.text_audio_output.setVolume(volume)
+        # 更新标签显示
+        if hasattr(self, 'label_volume'):
+            self.label_volume.setText(f"{value}%")
+        # 保存音量设置
+        self.settings.setValue("volume", volume)
+        self.settings.sync()
+    
+    def on_transparency_changed(self, value: int):
         """
         切换窗口透明度
         
         Args:
-            checked: True为透明，False为不透明
+            value: 滑块值（10-100），对应透明度10%-100%
         """
-        self.setWindowOpacity(0.1 if checked else 1.0)
-        self.switch_transparency.setText("")
+        opacity = value / 100.0
+        self.setWindowOpacity(opacity)
+        # 同步更新设置面板透明度
+        if hasattr(self, 'settings_view') and self.settings_view is not None:
+            self.settings_view.setWindowOpacity(opacity)
+        # 更新标签显示
+        if hasattr(self, 'label_transparency'):
+            self.label_transparency.setText(f"{value}%")
 
     def update_window_icon(self, dark_mode: bool):
         """
@@ -1260,14 +1474,14 @@ class KochWindow(QWidget):
             self.is_dark_theme = True
         else:  # 浅色主题
             setTheme(Theme.LIGHT)
-            self.setStyleSheet("QWidget { background-color: #f3f3f3; }")
+            self.setStyleSheet("QWidget { background-color: #F3F3F3; }")
             self.set_windows_title_bar_color(False)
             self.update_window_icon(False)
             self.is_dark_theme = False
         
-        self.switch_theme.setText("")
-        self.set_slider_style(self.progress_char)
-        self.set_slider_style(self.progress_text)
+        # 保存主题设置
+        self.settings.setValue("dark_theme", self.is_dark_theme)
+        self.settings.sync()
     
     def set_windows_title_bar_color(self, dark_mode: bool):
         """
@@ -1306,59 +1520,6 @@ class KochWindow(QWidget):
         except (OSError, AttributeError):
             # 非Windows系统或API调用失败时忽略
             pass
-
-    def set_slider_style(self, slider: QSlider):
-        """
-        为 QSlider 应用 QFluentWidgets 主题颜色
-    
-        Args:
-            slider: 要应用样式的滑块
-        """
-        # 获取主题颜色
-        theme_color = ThemeColor.PRIMARY.color().name()
-        if self.is_dark_theme:
-            # 深色主题
-            groove_color = "#A8A8A8"
-            handle_bg_color = "#929292"
-            handle_hover_color = "#A6A6A6"
-        else:
-            # 浅色主题
-            groove_color = "#909090"
-            handle_bg_color = "#A6A6A6"
-            handle_hover_color = "#929292"
-    
-        slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: transparent;
-            }}
-            QSlider::sub-page:horizontal {{
-                height: 4px;
-                background: {theme_color};
-                margin: 0px 0;
-                border-radius: 2px;
-            }}
-            QSlider::add-page:horizontal {{
-                height: 2px;
-                background: {groove_color};
-                margin: 1px 0;
-                border-radius: 1px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {handle_bg_color};
-                width: 6px;
-                height: 6px;
-                margin: -1px 0;
-                border-radius: 3px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: {handle_hover_color};
-                width: 6px;
-                height: 6px;
-                margin: -1px 0;
-                border-radius: 3px;
-            }}
-        """)
     
     # ==================== 统计窗口显示 ====================
 
@@ -1368,8 +1529,8 @@ class KochWindow(QWidget):
         from Statistics_Window import StatisticsWindow
         
         # 传入当前主题状态（True=深色，False=浅色）
-        current_theme = self.switch_theme.isChecked()
-        current_transparent = self.switch_transparency.isChecked()
+        current_theme = self.is_dark_theme
+        current_transparent = round(float(self.windowOpacity()), 2)
 
         # 创建统计窗口实例
         statistics_window = StatisticsWindow(
@@ -1422,9 +1583,6 @@ if __name__ == "__main__":
     logger.info("Koch Application started")
     logger.info(f"Version: {config.APP_VERSION}")
     logger.info("=" * 50)
-    
-    # 设置默认浅色主题
-    setTheme(Theme.LIGHT)
     
     # 创建并显示主窗口
     window = KochWindow()
