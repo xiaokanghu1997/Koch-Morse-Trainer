@@ -3,8 +3,8 @@ Koch 配置管理模块
 处理路径、设置等配置项
 
 Author: Xiaokang HU
-Date: 2025-12-12
-Version: 1.2.4
+Date: 2025-12-15
+Version: 1.2.5
 """
 
 import sys
@@ -19,7 +19,7 @@ class Config:
     
     # ==================== 常量定义 ====================
     APP_NAME: str = "Koch"
-    APP_VERSION: str = "1.2.4"
+    APP_VERSION: str = "1.2.5"
     AUTHOR: str = "Xiaokang HU"
     
     def __init__(self):

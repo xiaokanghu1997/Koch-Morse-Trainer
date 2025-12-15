@@ -3,8 +3,8 @@ Koch - 摩尔斯电码训练器
 用于学习和练习摩尔斯电码字符识别
 
 Author: Xiaokang HU
-Date: 2025-12-12
-Version: 1.2.4
+Date: 2025-12-15
+Version: 1.2.5
 """
 
 import sys
@@ -32,7 +32,7 @@ class KochWindow(QWidget):
     """Koch主窗口类"""
     
     # ==================== 常量定义 ====================
-    APPLICATION_VERSION = "v1.2.4"              # 应用程序版本
+    APPLICATION_VERSION = "v1.2.5"              # 应用程序版本
 
     # 窗口尺寸
     WINDOW_WIDTH = 777                          # 窗口宽度
@@ -150,9 +150,13 @@ class KochWindow(QWidget):
     is_char_playing: bool                       # 字符音频是否正在播放
     is_char_restart: bool                       # 字符音频重播状态
     is_char_seeking: bool                       # 字符音频进度条拖动状态
+    is_char_updating: bool                      # 字符音频进度条更新状态
     is_text_playing: bool                       # 文本音频是否正在播放
     is_text_restart: bool                       # 文本音频重播状态
     is_text_seeking: bool                       # 文本音频进度条拖动状态
+    is_text_manually_seeked: bool               # 文本音频进度条手动拖动状态
+    is_text_playback_finished: bool             # 文本音频播放是否结束
+    is_text_updating: bool                      # 文本音频进度条更新状态
     countdown_value: int                        # 倒计时当前值
     is_countdown_active: bool                   # 倒计时是否激活
     is_settings_tip_open: bool                  # 设置面板是否打开
@@ -196,10 +200,14 @@ class KochWindow(QWidget):
         self.is_char_playing = False  # 字符音频是否正在播放
         self.is_char_restart = False  # 字符音频重播状态
         self.is_char_seeking = False  # 字符音频进度条拖动状态
+        self.is_char_updating = False   # 字符音频进度条更新状态（防止递归）
 
         self.is_text_playing = False  # 文本音频是否正在播放
         self.is_text_restart = False  # 文本音频重播状态
         self.is_text_seeking = False  # 文本音频进度条拖动状态
+        self.is_text_manually_seeked = False  # 文本音频进度条手动拖动状态
+        self.is_text_playback_finished = False  # 文本音频播放是否结束
+        self.is_text_updating = False   # 文本音频进度条更新状态（防止递归）
         
         self.current_lesson_name = None  # 当前课程名称
         self.current_text_index = 0  # 当前练习文本索引（0-19）
@@ -827,20 +835,11 @@ class KochWindow(QWidget):
     def char_restart(self):
         """
         字符音频重播
-        第一次点击停止播放，第二次点击从头播放
         """
-        if not self.is_char_restart:  # 第一次点击：停止
-            self.char_player.stop()
-            self.is_char_restart = True
-            self.set_play_button_state(self.btn_char_play_pause, False)
-            self.is_char_playing = False
-        else:  # 第二次点击：从头播放
-            self.char_player.play()
-            self.is_char_restart = False
-            self.set_play_button_state(self.btn_char_play_pause, True)
-            self.is_char_playing = True
-        
-        self.is_char_restart = not self.is_char_restart
+        self.char_player.stop()
+        self.set_play_button_state(self.btn_char_play_pause, False)
+        self.is_char_playing = False
+        self.is_char_restart = False
     
     def update_char_progress(self, position: int):
         """
@@ -852,7 +851,10 @@ class KochWindow(QWidget):
         if not self.is_char_seeking:
             if self.char_player.duration() > 0:
                 progress = int((position / self.char_player.duration()) * 1000)
+                # 使用标志位防止递归
+                self.is_char_updating = True
                 self.progress_char.setValue(progress)
+                self.is_char_updating = False
             self.label_char_current_time.setText(self.format_time(position))
     
     def update_char_duration(self, duration: int):
@@ -879,6 +881,9 @@ class KochWindow(QWidget):
             self.btn_char_restart.setEnabled(False)
             self.is_char_restart = False
             self.is_char_seeking = False
+            # 重置当前时间显示
+            self.label_char_current_time.setText("00:00")
+            self.label_char_total_time.setText(self.format_time(self.char_player.duration()))
     
     # ==================== 字符音频进度条控制 ====================
 
@@ -905,9 +910,22 @@ class KochWindow(QWidget):
         Args:
             value: 进度条当前值（0-1000）
         """
-        if self.is_char_seeking and self.char_player.duration() > 0:
-            position = int((value / 1000) * self.char_player.duration())
+        if self.is_char_updating or self.char_player.duration() <= 0:
+            return
+        position = int((value / 1000) * self.char_player.duration())
+        # 拖动时更新标签
+        if self.is_char_seeking:
             self.label_char_current_time.setText(self.format_time(position))
+        # 点击跳转时更新标签和播放位置
+        elif not self.progress_char.isSliderDown():
+            current_position = self.char_player.position()
+            if abs(current_position - position) > 50:  # 避免微小变化频繁跳转
+                self.is_char_updating = True
+                try:
+                    self.char_player.setPosition(position)
+                    self.label_char_current_time.setText(self.format_time(position))
+                finally:
+                    self.is_char_updating = False
     
     # ==================== 练习文本音频控制 ====================
     
@@ -933,6 +951,9 @@ class KochWindow(QWidget):
 
         self.practice_start_time = None  # 重置练习开始时间
         self.practice_end_time = None  # 重置练习结束时间
+
+        self.is_text_manually_seeked = False  # 重置手动拖动标志
+        self.is_text_playback_finished = True  # 重置播放完成标志
     
     def text_play_pause(self):
         """
@@ -942,7 +963,8 @@ class KochWindow(QWidget):
         if self.is_countdown_active:  # 倒计时中，点击取消
             self.cancel_countdown()
         elif not self.is_text_playing:  # 当前暂停，开始播放
-            if self.text_player.position() == 0:  # 从头开始，启动倒计时
+            if self.text_player.position() == 0 and self.is_text_playback_finished:
+                self.is_text_playback_finished = False
                 self.start_countdown()
             else:  # 继续播放
                 if self.practice_start_time is None:
@@ -1002,20 +1024,17 @@ class KochWindow(QWidget):
     def text_restart(self):
         """
         练习文本音频重播
-        第一次点击停止播放，第二次点击从头播放
+        停止当前播放，重置到开头，启动倒计时
         """
-        if not self.is_text_restart:  # 第一次点击：停止
-            self.text_player.stop()
-            self.is_text_restart = True
-            self.set_play_button_state(self.btn_text_play_pause, False)
-            self.is_text_playing = False
-        else:  # 第二次点击：从头播放
-            self.text_player.play()
-            self.is_text_restart = False
-            self.set_play_button_state(self.btn_text_play_pause, True)
-            self.is_text_playing = True
-        
-        self.is_text_restart = not self.is_text_restart
+        # 停止当前播放
+        self.text_player.stop()
+        # 重置标志位
+        self.is_text_manually_seeked = False
+        self.is_text_playback_finished = True
+        # 重置播放状态
+        self.set_play_button_state(self.btn_text_play_pause, False)
+        self.is_text_playing = False
+        self.is_text_restart = False
     
     def update_text_progress(self, position: int):
         """
@@ -1027,7 +1046,10 @@ class KochWindow(QWidget):
         if not self.is_text_seeking:
             if self.text_player.duration() > 0:
                 progress = int((position / self.text_player.duration()) * 1000)
+                # 使用标志位防止递归
+                self.is_text_updating = True
                 self.progress_text.setValue(progress)
+                self.is_text_updating = False
             self.label_text_current_time.setText(self.format_time(position))
     
     def update_text_duration(self, duration: int):
@@ -1048,12 +1070,20 @@ class KochWindow(QWidget):
             state: 播放器状态
         """
         if state == QMediaPlayer.PlaybackState.StoppedState:
+            # 如果当前正在播放，说明是自然播放完成
+            if self.is_text_playing:
+                self.is_text_playback_finished = True
+                self.is_text_manually_seeked = False  # 重置手动拖动标志
+            # 更新UI和标志位
             self.set_play_button_state(self.btn_text_play_pause, False)
             self.is_text_playing = False
             self.progress_text.setValue(0)
             self.btn_text_restart.setEnabled(False)
             self.is_text_restart = False
             self.is_text_seeking = False
+            # 重置当前时间显示
+            self.label_text_current_time.setText("00:00")
+            self.label_text_total_time.setText(self.format_time(self.text_player.duration()))
     
     # ==================== 练习文本音频进度条控制 ====================
 
@@ -1062,6 +1092,7 @@ class KochWindow(QWidget):
         练习文本音频进度条开始拖动
         """
         self.is_text_seeking = True
+        self.is_text_manually_seeked = True  # 标记为手动拖动
         # 如果正在倒计时，取消倒计时
         if self.is_countdown_active:
             self.cancel_countdown()
@@ -1083,9 +1114,28 @@ class KochWindow(QWidget):
         Args:
             value: 进度条当前值（0-1000）
         """
-        if self.is_text_seeking and self.text_player.duration() > 0:
-            position = int((value / 1000) * self.text_player.duration())
+        if self.is_text_updating or self.text_player.duration() <= 0:
+            return
+        position = int((value / 1000) * self.text_player.duration())
+        # 拖动时更新标签
+        if self.is_text_seeking:
+            if self.progress_text.isSliderDown() and self.is_countdown_active:
+                # 如果在倒计时中拖动进度条，取消倒计时
+                self.cancel_countdown()
             self.label_text_current_time.setText(self.format_time(position))
+        # 点击跳转时更新标签和播放位置
+        elif not self.progress_text.isSliderDown():
+            current_position = self.text_player.position()
+            if abs(current_position - position) > 50:  # 避免微小变化频繁跳转
+                self.is_text_updating = True
+                try:
+                    self.is_text_manually_seeked = True  # 标记为手动拖动
+                    if self.is_countdown_active:
+                        self.cancel_countdown()
+                    self.text_player.setPosition(position)
+                    self.label_text_current_time.setText(self.format_time(position))
+                finally:
+                    self.is_text_updating = False
     
     # ==================== 结果检查与评分 ====================
     
@@ -1123,10 +1173,19 @@ class KochWindow(QWidget):
             lesson_num = self.label_lesson_num.text()
             result_file = config.get_lesson_text(int(lesson_num), self.current_text_index + 1)
             
-            with open(result_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                # 从第一行开始读取
-                result_characters = "".join(lines).replace("\n", " ").upper().strip()
+            try:
+                with open(result_file, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    # 从第一行开始读取
+                    result_characters = "".join(lines).replace("\n", " ").upper().strip()
+            except FileNotFoundError:
+                self.logger.error(f"Answer file not found: {result_file}", exc_info=True)
+                raise
+            except Exception as e:
+                self.logger.error(f"Error reading {result_file}: {e}", exc_info=True)
+                self.clear_layout(self.hbox62)
+                self.hbox62.addWidget(BodyLabel(f"Error: {str(e)}"))
+                return
             
             # 定义等宽字体样式的HTML模板
             html_styles = {
@@ -1276,6 +1335,10 @@ class KochWindow(QWidget):
         # 检查设置面板是否已经打开
         if self.is_settings_tip_open:
             return
+        if hasattr(self, 'settings_view') and self.settings_view is not None:
+            self.settings_view.close()
+            self.settings_view.deleteLater()
+            self.settings_view = None
         
         # 标记设置面板为打开状态
         self.is_settings_tip_open = True

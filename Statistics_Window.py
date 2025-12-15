@@ -3,8 +3,8 @@ Koch 统计窗口
 显示学习统计数据和图表
 
 Author: Xiaokang HU
-Date: 2025-12-12
-Version: 1.2.4
+Date: 2025-12-15
+Version: 1.2.5
 """
 
 import logging

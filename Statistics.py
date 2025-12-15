@@ -3,8 +3,8 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: Xiaokang HU
-Date: 2025-12-12
-Version: 1.2.4
+Date: 2025-12-15
+Version: 1.2.5
 """
 
 import json
@@ -133,13 +133,12 @@ class StatisticsManager:
         self.data["practiced_lesson_names"] = ["All"] + [name for _, name in lesson_info]
         
         # 计算总平均准确率
-        total_lessons = len(self.data["lessons"])
-        if total_lessons > 0:
-            total_avg = sum(
-                lesson.get("average_accuracy", 0)
-                for lesson in self.data["lessons"].values()
-            ) / total_lessons
-            self.data["average_accuracy"] = round(total_avg, 2)
+        all_accuracies = []
+        for lesson_data in self.data["lessons"].values():
+            for record in lesson_data.get("accuracy_history", []):
+                all_accuracies.append(record.get("accuracy", 0))
+        if all_accuracies:
+            self.data["average_accuracy"] = round(sum(all_accuracies) / len(all_accuracies), 2)
         else:
             self.data["average_accuracy"] = 0.0
         
