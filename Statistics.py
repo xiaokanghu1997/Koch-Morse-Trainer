@@ -3,12 +3,13 @@ Koch 统计数据管理模块
 记录和管理练习统计数据
 
 Author: Xiaokang HU
-Date: 2025-12-15
-Version: 1.2.5
+Date: 2025-12-22
+Version: 1.2.6
 """
 
 import json
 import logging
+
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any

@@ -2,13 +2,14 @@
 Koch方法摩尔斯电码训练材料创建工具
 用于学习和练习摩尔斯电码字符识别
 
-Author: xiaokanghu1997
-Date: 2025-12-15
-Version: 1.2.5
+Author: Xiaokang HU
+Date: 2025-12-22
+Version: 1.2.6
 """
 
 import random
 import numpy as np
+
 from pathlib import Path
 from typing import Tuple, Optional, List
 from scipy.io import wavfile

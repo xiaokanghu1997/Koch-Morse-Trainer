@@ -3,12 +3,13 @@ Koch 配置管理模块
 处理路径、设置等配置项
 
 Author: Xiaokang HU
-Date: 2025-12-15
-Version: 1.2.5
+Date: 2025-12-22
+Version: 1.2.6
 """
 
 import sys
 import logging
+
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, Any
@@ -19,7 +20,7 @@ class Config:
     
     # ==================== 常量定义 ====================
     APP_NAME: str = "Koch"
-    APP_VERSION: str = "1.2.5"
+    APP_VERSION: str = "1.2.6"
     AUTHOR: str = "Xiaokang HU"
     
     def __init__(self):

@@ -3,24 +3,24 @@ Koch 统计窗口
 显示学习统计数据和图表
 
 Author: Xiaokang HU
-Date: 2025-12-15
-Version: 1.2.5
+Date: 2025-12-22
+Version: 1.2.6
 """
 
 import logging
+
 from ctypes import windll, byref, sizeof, c_int
 from datetime import datetime
 from typing import Optional
 
-from PySide6 import QtGui
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QColor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog, QSizePolicy
 
 from qfluentwidgets import (
     BodyLabel, StrongBodyLabel, ComboBox, SegmentedToolWidget,
-    setTheme, Theme, FluentIcon
+    setTheme, setThemeColor, Theme, FluentIcon
 )
 
 from Config import config
@@ -40,8 +40,12 @@ class StatisticsWindow(QDialog):
     """
     
     # ==================== 常量定义 ====================
-    DARK_TITLE_BAR_COLOR = 0x00202020        # 深色模式标题栏颜色 RGB(32, 32, 32)
-    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3       # 浅色模式标题栏颜色 RGB(243, 243, 243)
+    DARK_THEME_COLOR = "#92E0D3"              # 深色主题主色调
+    DARK_BACKGROUND_COLOR = "#202020"         # 深色模式背景颜色
+    DARK_TITLE_BAR_COLOR = 0x00202020           # 深色模式标题栏颜色 RGB(32, 32, 32)
+    LIGHT_THEME_COLOR = "#4A9B8E"             # 浅色主题主色调
+    LIGHT_BACKGROUND_COLOR = "#F3F3F3"        # 浅色模式背景颜色
+    LIGHT_TITLE_BAR_COLOR = 0x00F3F3F3          # 浅色模式标题栏颜色 RGB(243, 243, 243)
 
     WINDOW_WIDTH_CALENDAR = 840              # 日历热力图窗口宽度
     WINDOW_HEIGHT_CALENDAR = 250             # 日历热力图窗口高度
@@ -230,7 +234,7 @@ class StatisticsWindow(QDialog):
             QSizePolicy.Policy.Expanding
         )
         
-        bg_color = QtGui.QColor(32, 32, 32) if self.is_dark_theme else QtGui.QColor(243, 243, 243)
+        bg_color = QColor(self.DARK_BACKGROUND_COLOR) if self.is_dark_theme else QColor(self.LIGHT_BACKGROUND_COLOR)
         self.chart_view.page().setBackgroundColor(bg_color)
 
         start_page = f'<html><body style="background-color: {bg_color.name()}; margin: 0; padding: 0; width: 100%; height: 100%;"></body></html>'
@@ -558,7 +562,7 @@ class StatisticsWindow(QDialog):
         theme_str = "const isDark = true;" if self.is_dark_theme else "const isDark = false;"
         html = html.replace("const isDark = false;", theme_str)
 
-        bg_color = "#202020" if self.is_dark_theme else "#F3F3F3"
+        bg_color = self.DARK_BACKGROUND_COLOR if self.is_dark_theme else self.LIGHT_BACKGROUND_COLOR
         html = html.replace("background-color: #F3F3F3", f"background-color: {bg_color}")
 
         for key, value in data_dict.items():
@@ -629,17 +633,19 @@ class StatisticsWindow(QDialog):
             dark_mode: True为深色主题，False为浅色主题
         """
         if hasattr(self, 'chart_view'):
-            bg_color = QtGui.QColor(32, 32, 32) if dark_mode else QtGui.QColor(243, 243, 243)
+            bg_color = QColor(self.DARK_BACKGROUND_COLOR) if dark_mode else QColor(self.LIGHT_BACKGROUND_COLOR)
             self.chart_view.page().setBackgroundColor(bg_color)
         if dark_mode:  # 深色主题
             setTheme(Theme.DARK)
-            self.setStyleSheet("QWidget { background-color: #202020; }")
+            setThemeColor(self.DARK_THEME_COLOR)
+            self.setStyleSheet(f"QWidget {{ background-color: {self.DARK_BACKGROUND_COLOR}; }}")
             self.set_windows_title_bar_color(True)
             self.update_window_icon(True)
             self.apply_html_theme(True)
         else:  # 浅色主题
             setTheme(Theme.LIGHT)
-            self.setStyleSheet("QWidget { background-color: #F3F3F3; }")
+            setThemeColor(self.LIGHT_THEME_COLOR)
+            self.setStyleSheet(f"QWidget {{ background-color: {self.LIGHT_BACKGROUND_COLOR}; }}")
             self.set_windows_title_bar_color(False)
             self.update_window_icon(False)
             self.apply_html_theme(False)
